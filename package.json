@@ -12,7 +12,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@sparticuz/chromium": "^123.0.1",
     "axios": "^1.15.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -28,8 +27,6 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
     "pptxgenjs": "^4.0.1",
-    "puppeteer": "^24.42.0",
-    "puppeteer-core": "^21.0.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

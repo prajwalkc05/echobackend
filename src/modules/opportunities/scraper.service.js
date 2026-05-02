@@ -1,149 +1,71 @@
 import axios from "axios";
 
-const launchBrowser = async () => {
+// ── 1. JSEARCH API (RapidAPI - Free tier, real jobs) ──
+export const fetchJSearchJobs = async () => {
   try {
-    const isProduction = process.env.RENDER || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production';
-    
-    if (isProduction) {
-      console.log('🚀 Using @sparticuz/chromium for production');
-      const chromium = await import('@sparticuz/chromium');
-      const puppeteerCore = await import('puppeteer-core');
-      
-      // Force chromium to use /tmp for cache to avoid ETXTBSY
-      chromium.default.setHeadlessMode = true;
-      chromium.default.setGraphicsMode = false;
-      
-      const executablePath = await chromium.default.executablePath();
-      console.log('🔧 Chrome path:', executablePath);
-      
-      return await puppeteerCore.default.launch({
-        args: [
-          ...chromium.default.args,
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--single-process',
-          '--no-zygote',
-        ],
-        defaultViewport: chromium.default.defaultViewport,
-        executablePath: executablePath,
-        headless: true,
-      });
-    } else {
-      console.log('💻 Using regular puppeteer for local');
-      const puppeteer = await import('puppeteer');
-      return await puppeteer.default.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
+    const apiKey = process.env.JSEARCH_API_KEY;
+    if (!apiKey) {
+      console.log("⚠️ JSearch API key missing");
+      return [];
     }
-  } catch (error) {
-    console.log("⚠️ Puppeteer launch failed:", error.message);
-    throw error;
-  }
-};
 
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-// ── 1. INTERNSHALA ──
-export const scrapeInternshala = async () => {
-  let browser;
-  try {
-    browser = await launchBrowser();
-    const page = await browser.newPage();
-    await page.setUserAgent(userAgent);
-
-    await page.goto("https://internshala.com/jobs/computer-science-jobs/", { waitUntil: "networkidle2", timeout: 30000 });
-    await new Promise(r => setTimeout(r, 4000));
-
-    await page.evaluate(() => {
-      const closeBtn = document.querySelector('#close_popup, .ic-24-cross, .close');
-      if (closeBtn) closeBtn.click();
+    const res = await axios.get("https://jsearch.p.rapidapi.com/search", {
+      params: { query: "software developer in India", page: "1", num_pages: "1", date_posted: "week" },
+      headers: {
+        "x-rapidapi-key": apiKey,
+        "x-rapidapi-host": "jsearch.p.rapidapi.com",
+      },
+      timeout: 10000,
     });
 
-    await new Promise(r => setTimeout(r, 1000));
-
-    const jobs = await page.evaluate(() => {
-      const cards = document.querySelectorAll('.individual_internship, .job_card, [id^="job_"]');
-      return Array.from(cards).slice(0, 15).map(card => ({
-        title: (
-          card.querySelector('.job-title, .profile, .title, h3, .heading_4_5') ||
-          card.querySelector('a[href*="/jobs/"]')
-        )?.innerText?.trim() || null,
-        company: card.querySelector('.company-name, .company_name, .link_display_like_text')?.innerText?.trim() || null,
-        location: card.querySelector('.locations span, .location_link, .ic-16-location-outline')?.innerText?.trim() || "India",
-        url: "https://internshala.com" + (card.querySelector('a[href^="/"]')?.getAttribute('href') || ""),
-        type: "internship",
-        skills: [],
-        source: "Internshala",
-      })).filter(j => j.title && j.company);
-    });
-
-    await browser.close();
-    console.log(`✅ Internshala: ${jobs.length} jobs`);
-    return jobs;
+    return res.data.data.slice(0, 15).map(job => ({
+      title: job.job_title,
+      company: job.employer_name,
+      location: job.job_city || job.job_country || "India",
+      url: job.job_apply_link,
+      type: job.job_employment_type?.toLowerCase().includes("intern") ? "internship" : "job",
+      skills: job.job_required_skills || [],
+      source: "JSearch",
+    }));
   } catch (err) {
-    console.log("⚠️ Internshala failed:", err.message);
-    if (browser) await browser.close();
+    console.log("⚠️ JSearch failed:", err.message);
     return [];
   }
 };
 
-// ── 2. NAUKRI ──
-export const scrapeNaukri = async (query = "software-developer") => {
-  let browser;
+// ── 2. REMOTIVE API (Free, no key needed - remote jobs) ──
+export const fetchRemotiveJobs = async () => {
   try {
-    browser = await launchBrowser();
-    const page = await browser.newPage();
-    await page.setUserAgent(userAgent);
-    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-
-    await page.goto(`https://www.naukri.com/${query}-jobs-in-india`, {
-      waitUntil: "domcontentloaded",
-      timeout: 20000,
+    const res = await axios.get("https://remotive.com/api/remote-jobs", {
+      params: { category: "software-dev", limit: 15 },
+      timeout: 10000,
     });
 
-    await page.waitForSelector(".srp-jobtuple-wrapper, .jobTuple, article", { timeout: 10000 }).catch(() => null);
-
-    const jobs = await page.evaluate(() => {
-      const selectors = [".srp-jobtuple-wrapper", ".jobTuple", "article.jobTuple"];
-      let nodes = [];
-      for (const sel of selectors) {
-        nodes = document.querySelectorAll(sel);
-        if (nodes.length) break;
-      }
-
-      return Array.from(nodes).slice(0, 15).map(job => ({
-        title: job.querySelector("a.title, .jobTitle, .title")?.innerText?.trim() || null,
-        company: job.querySelector(".comp-name, .subTitle, .companyName")?.innerText?.trim() || null,
-        location: job.querySelector(".locWdth, .location, .ni-job-tuple-icon-srp-loc")?.innerText?.trim() || "India",
-        url: job.querySelector("a")?.href || null,
-        type: "job",
-        skills: [],
-        source: "Naukri",
-      })).filter(j => j.title && j.company);
-    });
-
-    await browser.close();
-    console.log(`✅ Naukri: ${jobs.length} jobs`);
-    return jobs;
+    return res.data.jobs.slice(0, 15).map(job => ({
+      title: job.title,
+      company: job.company_name,
+      location: job.candidate_required_location || "Remote",
+      url: job.url,
+      type: "job",
+      skills: job.tags || [],
+      source: "Remotive",
+    }));
   } catch (err) {
-    console.log("⚠️ Naukri failed:", err.message);
-    if (browser) await browser.close();
+    console.log("⚠️ Remotive failed:", err.message);
     return [];
   }
 };
 
-// ── 3. ADZUNA API (Free, India jobs) ──
+// ── 3. ADZUNA API ──
 export const fetchAdzunaJobs = async () => {
   try {
     const appId = process.env.ADZUNA_APP_ID;
     const appKey = process.env.ADZUNA_APP_KEY;
-
     if (!appId || !appKey) return [];
 
     const res = await axios.get(
       `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=15&what=developer&where=india`,
-      { timeout: 8000 }
+      { timeout: 10000 }
     );
 
     return res.data.results.map(job => ({
@@ -178,21 +100,23 @@ const staticFallback = [
 export const scrapeAllJobs = async () => {
   console.log("🔄 Fetching from all sources...");
 
-  const [internshala, naukri, adzuna] = await Promise.all([
-    scrapeInternshala(),
-    scrapeNaukri(),
+  const [jsearch, remotive, adzuna] = await Promise.all([
+    fetchJSearchJobs(),
+    fetchRemotiveJobs(),
     fetchAdzunaJobs(),
   ]);
 
-  const all = [...internshala, ...naukri, ...adzuna];
+  const all = [...jsearch, ...remotive, ...adzuna];
 
-  // Deduplicate by title + company
   const unique = Array.from(
     new Map(all.map(j => [(j.title + j.company).toLowerCase(), j])).values()
   );
 
-  console.log(`✅ Total unique jobs: ${unique.length} (Internshala: ${internshala.length}, Naukri: ${naukri.length}, Adzuna: ${adzuna.length})`);
+  console.log(`✅ Total unique jobs: ${unique.length} (JSearch: ${jsearch.length}, Remotive: ${remotive.length}, Adzuna: ${adzuna.length})`);
 
-  // Use fallback if all sources failed
   return unique.length ? unique : staticFallback;
 };
+
+// Keep these exports for backward compatibility
+export const scrapeInternshala = fetchJSearchJobs;
+export const scrapeNaukri = fetchRemotiveJobs;
