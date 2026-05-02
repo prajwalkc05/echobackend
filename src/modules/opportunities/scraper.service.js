@@ -4,11 +4,36 @@ import axios from "axios";
 
 const launchBrowser = async () => {
   try {
+    let executablePath = await chromium.executablePath;
+    
+    // Fallback for local development
+    if (!executablePath) {
+      // Try to find local Chrome/Chromium
+      const possiblePaths = [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS
+        '/usr/bin/google-chrome', // Linux
+        '/usr/bin/chromium-browser', // Linux
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Windows
+      ];
+      
+      const fs = await import('fs');
+      for (const path of possiblePaths) {
+        if (fs.existsSync(path)) {
+          executablePath = path;
+          break;
+        }
+      }
+    }
+    
+    if (!executablePath) {
+      throw new Error('Chrome executable not found');
+    }
+    
     return await puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
-      headless: chromium.headless,
+      executablePath: executablePath,
+      headless: true,
       ignoreHTTPSErrors: true,
     });
   } catch (error) {
