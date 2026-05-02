@@ -11,13 +11,27 @@ let firebaseInitialized = false;
 export const initFirebase = () => {
   if (firebaseInitialized) return;
 
-  if (!existsSync(keyPath)) {
-    console.log("⚠️ Firebase key not found — push notifications disabled");
-    return;
-  }
-
   try {
-    const serviceAccount = JSON.parse(readFileSync(keyPath, "utf8"));
+    let serviceAccount;
+    
+    // Check if running on Render (using env vars)
+    if (process.env.FIREBASE_PRIVATE_KEY) {
+      serviceAccount = {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      };
+    } 
+    // Local development (using file)
+    else if (existsSync(keyPath)) {
+      serviceAccount = JSON.parse(readFileSync(keyPath, "utf8"));
+    } 
+    else {
+      console.log("⚠️ Firebase key not found — push notifications disabled");
+      return;
+    }
+
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     firebaseInitialized = true;
     console.log("✅ Firebase Admin initialized");
