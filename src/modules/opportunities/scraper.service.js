@@ -1,20 +1,28 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 import axios from "axios";
 
 const launchBrowser = async () => {
   try {
-    return await puppeteer.launch({
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-blink-features=AutomationControlled",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--single-process"
-      ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-    });
+    // Check if running on Render/production or local
+    const isProduction = process.env.NODE_ENV === 'production' || !process.env.NODE_ENV;
+    
+    if (isProduction) {
+      // Use chromium for serverless/Render
+      return await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+      });
+    } else {
+      // Local development - use regular puppeteer
+      const puppeteerRegular = await import('puppeteer');
+      return await puppeteerRegular.default.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+    }
   } catch (error) {
     console.log("⚠️ Puppeteer launch failed:", error.message);
     throw error;
