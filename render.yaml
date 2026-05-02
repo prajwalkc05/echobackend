@@ -2,8 +2,11 @@ services:
   - type: web
     name: echomentor-backend
     env: node
+    region: oregon
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: AWS_LAMBDA_FUNCTION_NAME
+        value: echomentor
