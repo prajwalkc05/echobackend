@@ -2,9 +2,10 @@ import axios from "axios";
 
 const launchBrowser = async () => {
   try {
-    // Check if running on AWS Lambda / Render production
-    if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
-      // Use chrome-aws-lambda for serverless
+    const isProduction = process.env.RENDER || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      console.log('🚀 Using chrome-aws-lambda for production');
       const chromium = await import('chrome-aws-lambda');
       const puppeteerCore = await import('puppeteer-core');
       
@@ -16,7 +17,7 @@ const launchBrowser = async () => {
         ignoreHTTPSErrors: true,
       });
     } else {
-      // Use regular puppeteer for local development
+      console.log('💻 Using regular puppeteer for local');
       const puppeteer = await import('puppeteer');
       return await puppeteer.default.launch({
         headless: true,
