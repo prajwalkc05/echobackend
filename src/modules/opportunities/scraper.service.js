@@ -5,16 +5,15 @@ const launchBrowser = async () => {
     const isProduction = process.env.RENDER || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production';
     
     if (isProduction) {
-      console.log('🚀 Using chrome-aws-lambda for production');
-      const chromium = await import('chrome-aws-lambda');
+      console.log('🚀 Using @sparticuz/chromium for production');
+      const chromium = await import('@sparticuz/chromium');
       const puppeteerCore = await import('puppeteer-core');
       
       return await puppeteerCore.default.launch({
         args: chromium.default.args,
         defaultViewport: chromium.default.defaultViewport,
-        executablePath: await chromium.default.executablePath,
-        headless: true,
-        ignoreHTTPSErrors: true,
+        executablePath: await chromium.default.executablePath(),
+        headless: chromium.default.headless,
       });
     } else {
       console.log('💻 Using regular puppeteer for local');
