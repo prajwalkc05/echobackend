@@ -1,0 +1,153 @@
+{
+	"info": {
+		"name": "EchoMentor Opportunities APIs",
+		"description": "Job opportunities endpoints for EchoMentor Backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get All Opportunities",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/opportunities?page=1&limit=10",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"opportunities"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "limit",
+							"value": "10"
+						}
+					]
+				},
+				"description": "Get all job opportunities with pagination"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Matched Opportunities",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/opportunities/matched",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"opportunities",
+						"matched"
+					]
+				},
+				"description": "Get opportunities matched to user profile"
+			},
+			"response": []
+		},
+		{
+			"name": "Bookmark Opportunity",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"opportunityId\": \"65f1234567890abcdef12345\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/opportunities/bookmark",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"opportunities",
+						"bookmark"
+					]
+				},
+				"description": "Bookmark a job opportunity"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Bookmarks",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/opportunities/bookmarks",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"opportunities",
+						"bookmarks"
+					]
+				},
+				"description": "Get all bookmarked opportunities"
+			},
+			"response": []
+		},
+		{
+			"name": "Remove Bookmark",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/opportunities/bookmark/:id",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"opportunities",
+						"bookmark",
+						":id"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": "65f1234567890abcdef12345"
+						}
+					]
+				},
+				"description": "Remove a bookmarked opportunity"
+			},
+			"response": []
+		}
+	]
+}

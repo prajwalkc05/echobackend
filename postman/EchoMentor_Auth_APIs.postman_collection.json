@@ -1,0 +1,65 @@
+{
+	"info": {
+		"name": "EchoMentor Auth APIs",
+		"description": "Authentication endpoints for EchoMentor Backend - Works with both local and production",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Signup",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/signup",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"signup"
+					]
+				},
+				"description": "Register a new user account"
+			},
+			"response": []
+		},
+		{
+			"name": "Login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"login"
+					]
+				},
+				"description": "Login with existing user credentials. Returns JWT token."
+			},
+			"response": []
+		}
+	]
+}
