@@ -10,10 +10,10 @@ export const fetchJSearchJobs = async () => {
     }
 
     const res = await axios.get("https://jsearch.p.rapidapi.com/search", {
-      params: { query: "software developer in India", page: "1", num_pages: "1", date_posted: "week" },
+      params: { query: "software developer india", page: "1", num_pages: "1" },
       headers: {
-        "x-rapidapi-key": apiKey,
-        "x-rapidapi-host": "jsearch.p.rapidapi.com",
+        "X-RapidAPI-Key": apiKey,
+        "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
       },
       timeout: 10000,
     });
