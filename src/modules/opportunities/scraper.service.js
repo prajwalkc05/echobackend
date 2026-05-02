@@ -1,41 +1,28 @@
-import puppeteer from "puppeteer-core";
-import chromium from "chrome-aws-lambda";
 import axios from "axios";
 
 const launchBrowser = async () => {
   try {
-    let executablePath = await chromium.executablePath;
-    
-    // Fallback for local development
-    if (!executablePath) {
-      // Try to find local Chrome/Chromium
-      const possiblePaths = [
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS
-        '/usr/bin/google-chrome', // Linux
-        '/usr/bin/chromium-browser', // Linux
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Windows
-      ];
+    // Check if running on AWS Lambda / Render production
+    if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
+      // Use chrome-aws-lambda for serverless
+      const chromium = await import('chrome-aws-lambda');
+      const puppeteerCore = await import('puppeteer-core');
       
-      const fs = await import('fs');
-      for (const path of possiblePaths) {
-        if (fs.existsSync(path)) {
-          executablePath = path;
-          break;
-        }
-      }
+      return await puppeteerCore.default.launch({
+        args: chromium.default.args,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath: await chromium.default.executablePath,
+        headless: true,
+        ignoreHTTPSErrors: true,
+      });
+    } else {
+      // Use regular puppeteer for local development
+      const puppeteer = await import('puppeteer');
+      return await puppeteer.default.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
     }
-    
-    if (!executablePath) {
-      throw new Error('Chrome executable not found');
-    }
-    
-    return await puppeteer.launch({
-      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: executablePath,
-      headless: true,
-      ignoreHTTPSErrors: true,
-    });
   } catch (error) {
     console.log("⚠️ Puppeteer launch failed:", error.message);
     throw error;
