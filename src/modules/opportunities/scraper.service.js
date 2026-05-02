@@ -33,6 +33,12 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 // ── 1. INTERNSHALA ──
 export const scrapeInternshala = async () => {
+  // Disable Puppeteer scraping on production (Render)
+  if (process.env.NODE_ENV === 'production') {
+    console.log("⚠️ Internshala scraping disabled on production");
+    return [];
+  }
+  
   let browser;
   try {
     browser = await launchBrowser();
@@ -79,6 +85,12 @@ export const scrapeInternshala = async () => {
 
 // ── 2. NAUKRI ──
 export const scrapeNaukri = async (query = "software-developer") => {
+  // Disable Puppeteer scraping on production (Render)
+  if (process.env.NODE_ENV === 'production') {
+    console.log("⚠️ Naukri scraping disabled on production");
+    return [];
+  }
+  
   let browser;
   try {
     browser = await launchBrowser();
