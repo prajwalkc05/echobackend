@@ -9,11 +9,24 @@ const launchBrowser = async () => {
       const chromium = await import('@sparticuz/chromium');
       const puppeteerCore = await import('puppeteer-core');
       
+      // Force chromium to use /tmp for cache to avoid ETXTBSY
+      chromium.default.setHeadlessMode = true;
+      chromium.default.setGraphicsMode = false;
+      
+      const executablePath = await chromium.default.executablePath();
+      console.log('🔧 Chrome path:', executablePath);
+      
       return await puppeteerCore.default.launch({
-        args: chromium.default.args,
+        args: [
+          ...chromium.default.args,
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--single-process',
+          '--no-zygote',
+        ],
         defaultViewport: chromium.default.defaultViewport,
-        executablePath: await chromium.default.executablePath(),
-        headless: chromium.default.headless,
+        executablePath: executablePath,
+        headless: true,
       });
     } else {
       console.log('💻 Using regular puppeteer for local');
@@ -39,11 +52,9 @@ export const scrapeInternshala = async () => {
     const page = await browser.newPage();
     await page.setUserAgent(userAgent);
 
-    // Use search page which doesn't require login
     await page.goto("https://internshala.com/jobs/computer-science-jobs/", { waitUntil: "networkidle2", timeout: 30000 });
     await new Promise(r => setTimeout(r, 4000));
 
-    // Close any modal if present
     await page.evaluate(() => {
       const closeBtn = document.querySelector('#close_popup, .ic-24-cross, .close');
       if (closeBtn) closeBtn.click();
