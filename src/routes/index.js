@@ -9,6 +9,7 @@ import userRoutes from "../modules/user/user.routes.js";
 import moodRoutes from "../modules/mood/mood.routes.js";
 import adminRoutes from "../modules/admin/admin.routes.js";
 import notificationRoutes from "../modules/notifications/notifications.routes.js";
+import codeAssistantRoutes from "../modules/codeAssistant/codeAssistant.routes.js";
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use("/user", userRoutes);
 router.use("/mood", moodRoutes);
 router.use("/admin", adminRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/code", codeAssistantRoutes);
 
 export default router;

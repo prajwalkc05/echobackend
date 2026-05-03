@@ -3,9 +3,7 @@ import mongoose from "mongoose";
 const resumeSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   title: String,
-  template: { type: String, default: "modernPro" },
   content: Object,
-  photo: String,
   aiGenerated: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });
