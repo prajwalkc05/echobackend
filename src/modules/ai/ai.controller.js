@@ -28,7 +28,35 @@ export const getChatHistory = async (req, res) => {
     const chats = await Chat.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .limit(50);
-    res.json(chats);
+    res.json({ success: true, chats });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteChat = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const chat = await Chat.findOneAndDelete({ _id: id, userId: req.user._id });
+    
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+    
+    res.json({ success: true, message: "Chat deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const clearAllChats = async (req, res) => {
+  try {
+    const result = await Chat.deleteMany({ userId: req.user._id });
+    
+    res.json({ 
+      success: true, 
+      message: `${result.deletedCount} chats cleared successfully` 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
