@@ -21,7 +21,7 @@ app.get("/", (req, res) => {
   res.send("EchoMentor API Running 🚀");
 });
 
-app.use("/api/ai", aiLimiter);
+app.use("/api/ai/chat", aiLimiter);
 app.use("/api", routes);
 
 export default app;
