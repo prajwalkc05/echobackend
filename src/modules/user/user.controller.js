@@ -29,16 +29,16 @@ export const saveOnboarding = async (req, res) => {
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       {
-        profile: {
-          interests: interests || [],
-          goals: goals || [],
-          education: education || '',
-          skills: skills || [],
-          learningStyle: learningStyle || '',
-          onboardingCompleted: true,
+        $set: {
+          'profile.interests': interests || [],
+          'profile.goals': goals || [],
+          'profile.education': education || '',
+          'profile.skills': skills || [],
+          'profile.learningStyle': learningStyle || '',
+          'profile.onboardingCompleted': true,
         },
       },
-      { new: true, select: "-password" }
+      { new: true, select: '-password' }
     );
     res.json({ success: true, user: updated });
   } catch (err) {
