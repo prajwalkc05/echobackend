@@ -22,7 +22,10 @@ const userSchema = new mongoose.Schema({
     role: String,
     skills: [String],
     interests: [String],
+    goals: [String],
+    learningStyle: String,
     location: String,
+    onboardingCompleted: { type: Boolean, default: false },
   },
 
   bookmarks: [
