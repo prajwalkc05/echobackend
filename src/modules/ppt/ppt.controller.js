@@ -1,13 +1,43 @@
-import { generateSlidesAI, createPPT } from "./ppt.service.js";
+import { generateSlidesWithImages, createPPT } from "./ppt.service.js";
 import PPT from "./ppt.model.js";
 
+// New endpoint: returns JSON slides for frontend renderer (SlideAI platform)
+export const generateSlidesJSON = async (req, res) => {
+  try {
+    const {
+      topic,
+      slideCount = 10,
+      presentationType = "business",
+      tone = "professional",
+      audience = "general",
+      theme = "future-neon",
+    } = req.body;
+
+    if (!topic) return res.status(400).json({ error: "Topic is required" });
+
+    const slides = await generateSlidesWithImages(topic, slideCount, presentationType, tone, audience);
+
+    if (!slides.length) {
+      return res.status(500).json({ error: "Failed to generate slides" });
+    }
+
+    // Save record
+    await PPT.create({ userId: req.user._id, topic, slides: slideCount, theme, layout: "ai-json" });
+
+    res.json({ slides, theme, title: topic });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Existing endpoint: generates and downloads .pptx file
 export const generatePPT = async (req, res) => {
   try {
     const { topic, slides = 5, theme = "light", layout = "titleContent" } = req.body;
 
     if (!topic) return res.status(400).json({ error: "Topic is required" });
 
-    const slidesData = await generateSlidesAI(topic, slides);
+    const slidesData = await generateSlidesWithImages(topic, slides);
 
     if (!slidesData.length) {
       return res.status(500).json({ error: "Failed to generate slide content" });
@@ -15,14 +45,7 @@ export const generatePPT = async (req, res) => {
 
     const pptBuffer = await createPPT(slidesData, theme, layout);
 
-    // Save record to DB
-    const record = await PPT.create({
-      userId: req.user._id,
-      topic,
-      slides,
-      theme,
-      layout,
-    });
+    const record = await PPT.create({ userId: req.user._id, topic, slides, theme, layout });
 
     res.set({
       "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
