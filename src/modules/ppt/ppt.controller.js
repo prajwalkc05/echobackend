@@ -6,6 +6,8 @@ export const generateSlidesJSON = async (req, res) => {
   try {
     const {
       topic,
+      slideContent,
+      description,
       slideCount = 10,
       presentationType = "business",
       tone = "professional",
@@ -21,8 +23,19 @@ export const generateSlidesJSON = async (req, res) => {
       return res.status(500).json({ error: "Failed to generate slides" });
     }
 
-    // Save record
-    await PPT.create({ userId: req.user._id, topic, slides: slideCount, theme, layout: "ai-json" });
+    // Save record with all details
+    await PPT.create({ 
+      userId: req.user._id, 
+      topic, 
+      description,
+      slideContent,
+      slides: slideCount, 
+      theme, 
+      presentationType,
+      tone,
+      audience,
+      layout: "ai-json" 
+    });
 
     res.json({ slides, theme, title: topic });
   } catch (err) {
@@ -61,7 +74,10 @@ export const generatePPT = async (req, res) => {
 
 export const getPPTHistory = async (req, res) => {
   try {
-    const history = await PPT.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    const history = await PPT.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('topic description slideContent slides theme presentationType tone audience createdAt');
     res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
