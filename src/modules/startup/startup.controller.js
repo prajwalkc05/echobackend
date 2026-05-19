@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import StartupIdea from "./startup.model.js";
 import { generateAIResponse } from "../../utils/aiHelper.js";
 
@@ -174,10 +175,10 @@ Return ONLY valid JSON in this exact format (no markdown, no extra text):
 
     // Update idea in database
     if (ideaId) {
-      await StartupIdea.findByIdAndUpdate(ideaId, {
-        validation,
-        status: "validated",
-      });
+      await StartupIdea.findOneAndUpdate(
+        mongoose.isValidObjectId(ideaId) ? { _id: ideaId } : { id: ideaId },
+        { validation, status: "validated" }
+      );
     }
 
     console.log('✅ Validation complete');
