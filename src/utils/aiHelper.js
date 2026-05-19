@@ -6,21 +6,22 @@ export const generateAIResponse = async (prompt) => {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const response = await groq.chat.completions.create({
       messages: [
-        { role: "system", content: "You are a helpful student assistant." },
+        { role: "system", content: "You are a helpful AI assistant. Always return valid JSON when requested." },
         { role: "user", content: prompt },
       ],
       model: "llama-3.1-8b-instant",
+      temperature: 0.7,
     });
     return response.choices[0].message.content;
   } catch (error) {
-    console.log("Groq failed → switching to OpenRouter");
+    console.log("Groq failed → switching to OpenRouter", error.message);
     try {
       const orResponse = await axios.post(
         "https://openrouter.ai/api/v1/chat/completions",
         {
           model: "meta-llama/llama-3.1-8b-instruct:free",
           messages: [
-            { role: "system", content: "You are a helpful student assistant." },
+            { role: "system", content: "You are a helpful AI assistant. Always return valid JSON when requested." },
             { role: "user", content: prompt },
           ],
         },
@@ -28,7 +29,7 @@ export const generateAIResponse = async (prompt) => {
       );
       return orResponse.data.choices[0].message.content;
     } catch (orError) {
-      console.log("OpenRouter failed → switching to HuggingFace");
+      console.log("OpenRouter failed → switching to HuggingFace", orError.message);
       try {
         const hfResponse = await axios.post(
           "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
@@ -37,7 +38,8 @@ export const generateAIResponse = async (prompt) => {
         );
         return hfResponse.data[0]?.generated_text || "No response";
       } catch (hfError) {
-        return "⚠️ AI service unavailable. Try later.";
+        console.error("All AI services failed", hfError.message);
+        throw new Error("AI service unavailable. Please try again later.");
       }
     }
   }
