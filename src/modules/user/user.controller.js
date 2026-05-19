@@ -38,7 +38,7 @@ export const saveOnboarding = async (req, res) => {
           'profile.onboardingCompleted': true,
         },
       },
-      { new: true, select: '-password' }
+      { returnDocument: 'after', select: '-password' }
     );
     res.json({ success: true, user: updated });
   } catch (err) {
