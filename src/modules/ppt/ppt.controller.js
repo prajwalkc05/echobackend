@@ -83,3 +83,23 @@ export const getPPTHistory = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const deletePPTHistory = async (req, res) => {
+  try {
+    const record = await PPT.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!record) return res.status(404).json({ error: 'Not found' });
+    await record.deleteOne();
+    res.json({ message: 'Deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const clearPPTHistory = async (req, res) => {
+  try {
+    await PPT.deleteMany({ userId: req.user._id });
+    res.json({ message: 'History cleared' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
