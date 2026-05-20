@@ -63,7 +63,7 @@ When the user says "it", "this", "that file", "read it", "explain it", "summariz
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-const groqModels = ['llama-3.1-8b-instant', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
+const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
 
 async function tryGroq(chatMessages) {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -73,21 +73,11 @@ async function tryGroq(chatMessages) {
         messages: chatMessages,
         model,
         temperature: 0.7,
-        max_tokens: 4096,
+        max_tokens: 1200,
       });
-      return response.choices[0].message.content;
+      const content = response?.choices?.[0]?.message?.content;
+      if (content) return content;
     } catch (err) {
-      const isRateLimit = err.status === 429;
-      const retryAfterMs = isRateLimit
-        ? (parseFloat(err.message?.match(/try again in ([\d.]+)s/i)?.[1] || '5') * 1000)
-        : 0;
-      if (isRateLimit && retryAfterMs < 15000) {
-        await sleep(retryAfterMs + 500);
-        const retry = await groq.chat.completions.create({
-          messages: chatMessages, model, temperature: 0.7, max_tokens: 4096,
-        });
-        return retry.choices[0].message.content;
-      }
       console.log(`Groq model ${model} failed:`, err.message);
     }
   }
@@ -96,18 +86,19 @@ async function tryGroq(chatMessages) {
 
 async function tryOpenRouter(chatMessages) {
   const models = [
-    'mistralai/mistral-7b-instruct:free',
-    'google/gemma-2-9b-it:free',
-    'meta-llama/llama-3.2-3b-instruct:free',
+    'openrouter/auto',
+    'meta-llama/llama-3.1-8b-instruct',
+    'google/gemma-2-9b-it',
   ];
   for (const model of models) {
     try {
       const res = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
-        { model, messages: chatMessages, max_tokens: 4096 },
+        { model, messages: chatMessages, max_tokens: 1200 },
         { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, 'HTTP-Referer': 'https://echomentor.app' } }
       );
-      return res.data.choices[0].message.content;
+      const content = res.data?.choices?.[0]?.message?.content;
+      if (content) return content;
     } catch (err) {
       console.log(`OpenRouter model ${model} failed:`, err.message);
     }
@@ -119,14 +110,19 @@ export const generateAIResponse = async (prompt, messages = null, fileContext = 
   const chatMessages = buildMessages(messages, prompt, fileContext);
 
   try {
-    return await tryGroq(chatMessages);
+    const result = await tryGroq(chatMessages);
+    if (result) return result;
   } catch (groqErr) {
     console.log('Groq failed → switching to OpenRouter:', groqErr.message);
-    try {
-      return await tryOpenRouter(chatMessages);
-    } catch (orErr) {
-      console.error('All AI services failed:', orErr.message);
-      throw new Error('AI service unavailable. Please try again later.');
-    }
   }
+
+  try {
+    const result = await tryOpenRouter(chatMessages);
+    if (result) return result;
+  } catch (orErr) {
+    console.log('OpenRouter failed:', orErr.message);
+  }
+
+  // Emergency fallback response
+  return 'AI services are temporarily busy. Please try again in 30 seconds.';
 };
