@@ -51,45 +51,49 @@ IMPORTANT:
 - Never expose backend structures
 - Always prioritize readability and user experience`;
 
-export const generateAIResponse = async (prompt) => {
+export const generateAIResponse = async (prompt, messages = null) => {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    // Use full messages array if provided (for conversation context + file content)
+    // Otherwise fall back to single prompt with system prompt
+    const chatMessages = messages ?? [
+      { role: 'system', content: PROFESSIONAL_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ];
     const response = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: PROFESSIONAL_SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      model: "llama-3.1-8b-instant",
+      messages: chatMessages,
+      model: 'llama-3.1-8b-instant',
       temperature: 0.7,
     });
     return response.choices[0].message.content;
   } catch (error) {
-    console.log("Groq failed → switching to OpenRouter", error.message);
+    console.log('Groq failed → switching to OpenRouter', error.message);
     try {
+      const chatMessages = messages ?? [
+        { role: 'system', content: PROFESSIONAL_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ];
       const orResponse = await axios.post(
-        "https://openrouter.ai/api/v1/chat/completions",
+        'https://openrouter.ai/api/v1/chat/completions',
         {
-          model: "meta-llama/llama-3.1-8b-instruct:free",
-          messages: [
-            { role: "system", content: PROFESSIONAL_SYSTEM_PROMPT },
-            { role: "user", content: prompt },
-          ],
+          model: 'meta-llama/llama-3.1-8b-instruct:free',
+          messages: chatMessages,
         },
         { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` } }
       );
       return orResponse.data.choices[0].message.content;
     } catch (orError) {
-      console.log("OpenRouter failed → switching to HuggingFace", orError.message);
+      console.log('OpenRouter failed → switching to HuggingFace', orError.message);
       try {
         const hfResponse = await axios.post(
-          "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+          'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
           { inputs: `${PROFESSIONAL_SYSTEM_PROMPT}\n\nUser: ${prompt}` },
           { headers: { Authorization: `Bearer ${process.env.HF_API_KEY}` } }
         );
-        return hfResponse.data[0]?.generated_text || "No response";
+        return hfResponse.data[0]?.generated_text || 'No response';
       } catch (hfError) {
-        console.error("All AI services failed", hfError.message);
-        throw new Error("AI service unavailable. Please try again later.");
+        console.error('All AI services failed', hfError.message);
+        throw new Error('AI service unavailable. Please try again later.');
       }
     }
   }
