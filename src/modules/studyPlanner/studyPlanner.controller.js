@@ -125,7 +125,8 @@ export const submitQuiz = async (req, res) => {
 // Get video recommendations
 export const getVideoRecommendations = async (req, res) => {
   try {
-    const { topic } = req.body;
+    const topic = req.body.topic || req.query.topic;
+    if (!topic) return res.status(400).json({ error: 'topic is required' });
     const videos = await getRecommendedVideos(topic);
     res.json({ success: true, videos });
   } catch (error) {

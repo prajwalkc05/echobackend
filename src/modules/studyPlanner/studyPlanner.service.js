@@ -129,61 +129,111 @@ export const calculateQuizScore = (questions, answers) => {
 
 export const generateAdaptiveUpdates = (performance, plan) => {
   const updates = [];
-  const weakTopics = Object.entries(performance.topicScores || {})
+  const topicScores = performance?.topicScores;
+  if (!topicScores) return updates;
+
+  // Handle both Map and plain object
+  const entries = topicScores instanceof Map
+    ? Array.from(topicScores.entries())
+    : Object.entries(topicScores);
+
+  const weakTopics = entries
     .filter(([_, score]) => score < 60)
-    .map(([topic, _]) => topic);
+    .map(([topic]) => topic);
 
   weakTopics.forEach(topic => {
-    if (performance.topicScores[topic] < 60) {
-      updates.push({
-        action: 'reschedule',
-        topic,
-        reason: `Your score in ${topic} is ${performance.topicScores[topic]}%. Rescheduling for tomorrow.`,
-        changes: { rescheduleDate: new Date(Date.now() + 24 * 60 * 60 * 1000) }
-      });
-
-      updates.push({
-        action: 'addPractice',
-        topic,
-        reason: `Adding 5 extra practice questions for ${topic}`,
-        changes: { addQuestions: 5 }
-      });
-
-      updates.push({
-        action: 'recommendVideo',
-        topic,
-        reason: `Recommending beginner-friendly videos for ${topic}`,
-        changes: { videoLevel: 'Beginner' }
-      });
-    }
+    const score = topicScores instanceof Map ? topicScores.get(topic) : topicScores[topic];
+    updates.push({
+      action: 'reschedule',
+      topic,
+      reason: `Your score in ${topic} is ${score}%. Rescheduling for tomorrow.`,
+      changes: { rescheduleDate: new Date(Date.now() + 24 * 60 * 60 * 1000) }
+    });
+    updates.push({
+      action: 'addPractice',
+      topic,
+      reason: `Adding 5 extra practice questions for ${topic}`,
+      changes: { addQuestions: 5 }
+    });
+    updates.push({
+      action: 'recommendVideo',
+      topic,
+      reason: `Recommending beginner-friendly videos for ${topic}`,
+      changes: { videoLevel: 'Beginner' }
+    });
   });
+
+  if (updates.length === 0) {
+    updates.push({
+      action: 'keepGoing',
+      topic: null,
+      reason: 'Great performance! Keep up the current study pace.',
+      changes: {}
+    });
+  }
 
   return updates;
 };
 
 export const getRecommendedVideos = async (topic) => {
   try {
-    const searchQuery = `${topic} tutorial`;
-    const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-      params: {
-        q: searchQuery,
-        part: 'snippet',
-        type: 'video',
-        maxResults: 3,
-        key: process.env.YOUTUBE_API_KEY,
-        videoDuration: 'medium',
-      }
-    });
+    const searchQuery = encodeURIComponent(`${topic} tutorial`);
 
-    return response.data.items.map(item => ({
-      title: item.snippet.title,
-      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-      duration: 15,
-      relevance: 85,
+    if (process.env.YOUTUBE_API_KEY) {
+      const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        params: {
+          q: `${topic} tutorial`,
+          part: 'snippet',
+          type: 'video',
+          maxResults: 4,
+          key: process.env.YOUTUBE_API_KEY,
+          videoDuration: 'medium',
+        }
+      });
+      return response.data.items.map(item => ({
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        thumbnail: item.snippet.thumbnails?.medium?.url || '',
+        duration: 15,
+        relevance: 85,
+      }));
+    }
+
+    // Fallback: use Invidious public API (no key needed)
+    const invidiousResponse = await axios.get(
+      `https://invidious.privacydev.net/api/v1/search?q=${searchQuery}&type=video&page=1`,
+      { timeout: 8000 }
+    );
+    return invidiousResponse.data.slice(0, 4).map(item => ({
+      title: item.title,
+      channel: item.author,
+      url: `https://www.youtube.com/watch?v=${item.videoId}`,
+      thumbnail: `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`,
+      duration: Math.round((item.lengthSeconds || 900) / 60),
+      relevance: 80,
     }));
   } catch (error) {
-    console.error("YouTube API error:", error.message);
-    return [];
+    console.error("Video API error:", error.message);
+    // Last resort: return curated search links
+    return [
+      {
+        title: `${topic} - Full Tutorial`,
+        channel: 'YouTube Search',
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' tutorial')}`,
+        thumbnail: '',
+        duration: null,
+        relevance: 70,
+      },
+      {
+        title: `${topic} for Beginners`,
+        channel: 'YouTube Search',
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' for beginners')}`,
+        thumbnail: '',
+        duration: null,
+        relevance: 70,
+      },
+    ];
   }
 };
 
