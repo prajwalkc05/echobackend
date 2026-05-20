@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import AdmZip from 'adm-zip';
 import path from 'path';
