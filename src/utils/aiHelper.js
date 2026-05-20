@@ -38,8 +38,6 @@ CRITICAL BEHAVIOR RULES:
    - Ignore previous messages.
    - Mention "extracted text", "file buffer", or any technical processing details.`;
 
-// Always ensure the master system prompt is the first message
-// fileContext is embedded INTO the system prompt so it is never stripped
 function buildMessages(messages, prompt, fileContext) {
   const systemContent = fileContext && fileContext.trim()
     ? `${MASTER_SYSTEM_PROMPT}
@@ -61,36 +59,57 @@ When the user says "it", "this", "that file", "read it", "explain it", "summariz
   ];
 }
 
+// Active Groq models only (ordered by TPM capacity: highest first)
+const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+
+// Active OpenRouter free models
+const OR_MODELS = [
+  'meta-llama/llama-3.2-3b-instruct:free',
+  'mistralai/mistral-7b-instruct:free',
+];
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+function getRetryMs(errorMessage) {
+  const match = errorMessage?.match(/try again in ([\d.]+)s/i);
+  return match ? Math.ceil(parseFloat(match[1]) * 1000) + 500 : null;
+}
 
 async function tryGroq(chatMessages) {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  for (const model of groqModels) {
+  for (const model of GROQ_MODELS) {
     try {
-      const response = await groq.chat.completions.create({
+      const completion = await groq.chat.completions.create({
         messages: chatMessages,
         model,
         temperature: 0.7,
         max_tokens: 1200,
       });
-      const content = response?.choices?.[0]?.message?.content;
-      if (content) return content;
+      return completion.choices[0].message.content;
     } catch (err) {
-      console.log(`Groq model ${model} failed:`, err.message);
+      if (err.status === 429) {
+        const waitMs = getRetryMs(err.message);
+        if (waitMs && waitMs <= 20000) {
+          console.log(`Groq rate limit on ${model}, waiting ${waitMs}ms...`);
+          await sleep(waitMs);
+          try {
+            const retry = await groq.chat.completions.create({
+              messages: chatMessages, model, temperature: 0.7, max_tokens: 1200,
+            });
+            return retry.choices[0].message.content;
+          } catch (retryErr) {
+            console.log(`Groq ${model} retry failed, trying next model`);
+          }
+        }
+      }
+      console.log(`Groq ${model} failed: ${err.message}`);
     }
   }
-  throw new Error('All Groq models failed');
+  throw new Error('All Groq models exhausted');
 }
 
 async function tryOpenRouter(chatMessages) {
-  const models = [
-    'openrouter/auto',
-    'meta-llama/llama-3.1-8b-instruct',
-    'google/gemma-2-9b-it',
-  ];
-  for (const model of models) {
+  for (const model of OR_MODELS) {
     try {
       const res = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
@@ -100,29 +119,19 @@ async function tryOpenRouter(chatMessages) {
       const content = res.data?.choices?.[0]?.message?.content;
       if (content) return content;
     } catch (err) {
-      console.log(`OpenRouter model ${model} failed:`, err.message);
+      console.log(`OpenRouter ${model} failed: ${err.message}`);
     }
   }
-  throw new Error('All OpenRouter models failed');
+  throw new Error('All OpenRouter models exhausted');
 }
 
 export const generateAIResponse = async (prompt, messages = null, fileContext = null) => {
+  if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not configured');
   const chatMessages = buildMessages(messages, prompt, fileContext);
-
   try {
-    const result = await tryGroq(chatMessages);
-    if (result) return result;
-  } catch (groqErr) {
-    console.log('Groq failed → switching to OpenRouter:', groqErr.message);
+    return await tryGroq(chatMessages);
+  } catch {
+    console.log('Groq exhausted → trying OpenRouter');
+    return await tryOpenRouter(chatMessages);
   }
-
-  try {
-    const result = await tryOpenRouter(chatMessages);
-    if (result) return result;
-  } catch (orErr) {
-    console.log('OpenRouter failed:', orErr.message);
-  }
-
-  // Emergency fallback response
-  return 'AI services are temporarily busy. Please try again in 30 seconds.';
 };

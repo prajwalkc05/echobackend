@@ -3,63 +3,53 @@ import axios from "axios";
 
 export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHours, difficultyLevel }) => {
   const daysUntilExam = Math.max(1, Math.ceil((new Date(examDate) - new Date()) / (1000 * 60 * 60 * 24)));
-  const cappedDays = Math.min(daysUntilExam, 3); // Reduced to 3 days to avoid token overflow
-  const limitedTopics = topics.slice(0, 3); // Limit to 3 topics
+  const cappedDays = Math.min(daysUntilExam, 3);
+  const limitedTopics = topics.slice(0, 3);
 
-  const prompt = `Create a ${cappedDays}-day study plan. Return ONLY valid JSON.
-
-Subject: ${subject}
-Topics: ${limitedTopics.join(", ")}
-Daily Hours: ${dailyHours}
-
-{"schedule":[{"day":"Day 1","date":"2024-01-01","tasks":[{"topic":"${limitedTopics[0] || 'Study'}","type":"Learn","duration":60,"description":"Study basics"}]}]}`;
+  // Create a reliable fallback schedule first
+  const fallbackSchedule = {
+    schedule: limitedTopics.map((topic, index) => ({
+      day: `Day ${index + 1}`,
+      date: new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      tasks: [
+        {
+          id: `task_${index}_0`,
+          topic,
+          type: "Learn",
+          duration: Math.floor(dailyHours * 60 * 0.6),
+          description: `Learn ${topic} fundamentals`,
+          resources: [],
+          completed: false
+        },
+        {
+          id: `task_${index}_1`,
+          topic,
+          type: "Practice",
+          duration: Math.floor(dailyHours * 60 * 0.4),
+          description: `Practice ${topic} exercises`,
+          resources: [],
+          completed: false
+        }
+      ]
+    }))
+  };
 
   try {
+    const prompt = `Create a study plan for ${subject}. Topics: ${limitedTopics.join(', ')}. Daily hours: ${dailyHours}. Return simple text description.`;
     const response = await generateAIResponse(prompt);
     
-    if (!response || response.includes('AI services are temporarily busy')) {
-      return {
-        schedule: [{
-          day: "Day 1",
-          date: new Date().toISOString().split('T')[0],
-          tasks: [{
-            topic: limitedTopics[0] || subject,
-            type: "Learn",
-            duration: dailyHours * 60,
-            description: `Study ${limitedTopics[0] || subject} fundamentals`
-          }]
-        }]
-      };
-    }
-
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { schedule: [] };
-    
-    let raw = jsonMatch[0];
-    try {
-      return JSON.parse(raw);
-    } catch {
-      const lastComplete = raw.lastIndexOf('},');
-      if (lastComplete > 0) {
-        raw = raw.substring(0, lastComplete + 1) + ']}';
-        return JSON.parse(raw);
+    // Always return the fallback schedule but with AI description if available
+    if (response && !response.includes('AI services are temporarily busy')) {
+      // Add AI description to the first task
+      if (fallbackSchedule.schedule[0] && fallbackSchedule.schedule[0].tasks[0]) {
+        fallbackSchedule.schedule[0].tasks[0].description = response.substring(0, 200) || fallbackSchedule.schedule[0].tasks[0].description;
       }
-      return { schedule: [] };
     }
+    
+    return fallbackSchedule;
   } catch (e) {
-    console.error("Failed to parse AI response:", e.message);
-    return {
-      schedule: [{
-        day: "Day 1",
-        date: new Date().toISOString().split('T')[0],
-        tasks: [{
-          topic: limitedTopics[0] || subject,
-          type: "Learn",
-          duration: dailyHours * 60,
-          description: `Study ${limitedTopics[0] || subject} fundamentals`
-        }]
-      }]
-    };
+    console.error("AI generation failed, using fallback:", e.message);
+    return fallbackSchedule;
   }
 };
 
