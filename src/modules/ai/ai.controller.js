@@ -44,34 +44,19 @@ export const chatWithAI = async (req, res) => {
       }
     }
 
-    // Build messages array:
-    // [system prompt] + [file context as system msg if present] + [conversation history] + [user message]
-    let chatMessages = [];
-
+    // Build clean messages array: strip all system messages (aiHelper injects master prompt)
+    // fileContext is passed separately and embedded into the system prompt by aiHelper
+    let chatMessages = null;
     if (Array.isArray(messages) && messages.length > 0) {
-      // Strip any existing system messages — aiHelper will inject the master prompt
       chatMessages = messages.filter(m => m.role !== 'system');
+      // Ensure current user message is the last entry (avoid duplicates)
+      const last = chatMessages[chatMessages.length - 1];
+      if (!last || last.role !== 'user') {
+        chatMessages.push({ role: 'user', content: message });
+      }
     }
 
-    // Inject file context as a system message BEFORE conversation history
-    // This ensures AI always has file content regardless of which message it's on
-    if (fileContext && fileContext.trim()) {
-      chatMessages = [
-        {
-          role: 'system',
-          content: `The user has uploaded file(s) in this conversation. Here is the extracted content:\n\n${fileContext}\n\nUse this content to answer all questions. When user says "it", "this", "that file", "read it", "explain it" — refer to this file content.`,
-        },
-        ...chatMessages,
-      ];
-    }
-
-    // Ensure current user message is the last entry
-    const lastMsg = chatMessages[chatMessages.length - 1];
-    if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content !== message) {
-      chatMessages.push({ role: 'user', content: message });
-    }
-
-    const aiResponse = await generateAIResponse(message, chatMessages.length > 0 ? chatMessages : null);
+    const aiResponse = await generateAIResponse(message, chatMessages, fileContext || null);
     const formattedReply = formatAIResponse(aiResponse);
 
     await Chat.create({ userId: req.user._id, message, reply: formattedReply });

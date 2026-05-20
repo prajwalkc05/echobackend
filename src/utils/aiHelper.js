@@ -39,20 +39,30 @@ CRITICAL BEHAVIOR RULES:
    - Mention "extracted text", "file buffer", or any technical processing details.`;
 
 // Always ensure the master system prompt is the first message
-function buildMessages(messages, prompt) {
+// fileContext is embedded INTO the system prompt so it is never stripped
+function buildMessages(messages, prompt, fileContext) {
+  const systemContent = fileContext && fileContext.trim()
+    ? `${MASTER_SYSTEM_PROMPT}
+
+---
+UPLOADED FILE CONTENT (read this carefully before answering):
+${fileContext}
+---
+When the user says "it", "this", "that file", "read it", "explain it", "summarize it" — they are referring to the file content above.`
+    : MASTER_SYSTEM_PROMPT;
+
   if (messages && Array.isArray(messages) && messages.length > 0) {
-    // Replace or prepend system prompt — never trust frontend system prompt alone
     const withoutSystem = messages.filter(m => m.role !== 'system');
-    return [{ role: 'system', content: MASTER_SYSTEM_PROMPT }, ...withoutSystem];
+    return [{ role: 'system', content: systemContent }, ...withoutSystem];
   }
   return [
-    { role: 'system', content: MASTER_SYSTEM_PROMPT },
+    { role: 'system', content: systemContent },
     { role: 'user', content: prompt },
   ];
 }
 
-export const generateAIResponse = async (prompt, messages = null) => {
-  const chatMessages = buildMessages(messages, prompt);
+export const generateAIResponse = async (prompt, messages = null, fileContext = null) => {
+  const chatMessages = buildMessages(messages, prompt, fileContext);
 
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
