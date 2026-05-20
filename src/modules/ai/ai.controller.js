@@ -1,4 +1,5 @@
 import { generateAIResponse } from "../../utils/aiHelper.js";
+import { formatAIResponse } from "../../utils/responseFormatter.js";
 import { checkDailyLimit } from "./ai.service.js";
 import Chat from "./ai.model.js";
 
@@ -12,11 +13,17 @@ export const chatWithAI = async (req, res) => {
       return res.status(403).json({ error: "Daily limit reached (20 chats). Upgrade to Pro 🚀" });
     }
 
-    const reply = await generateAIResponse(message);
+    // Get AI response
+    const aiResponse = await generateAIResponse(message);
+    
+    // Format the response to ensure it's clean markdown (no raw JSON/objects)
+    const formattedReply = formatAIResponse(aiResponse);
 
-    await Chat.create({ userId: req.user._id, message, reply });
+    // Save to database
+    await Chat.create({ userId: req.user._id, message, reply: formattedReply });
 
-    res.json({ success: true, reply, remainingChats: remaining - 1 });
+    // Return formatted response
+    res.json({ success: true, reply: formattedReply, remainingChats: remaining - 1 });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
