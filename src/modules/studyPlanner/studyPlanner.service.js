@@ -6,9 +6,7 @@ export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHour
   const cappedDays = Math.min(daysUntilExam, 7);
   const limitedTopics = topics.slice(0, 5);
 
-  // Create reliable schedule structure
   const schedule = [];
-  const taskTypes = ['Learn', 'Practice', 'Review', 'Quiz'];
   
   for (let day = 0; day < Math.min(cappedDays, limitedTopics.length); day++) {
     const topic = limitedTopics[day];
@@ -32,7 +30,7 @@ export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHour
           topic,
           type: 'Practice',
           duration: Math.floor(dailyHours * 60 * 0.3),
-          description: `Practice ${topic} with exercises and examples`,
+          description: `Practice ${topic} with exercises`,
           resources: [],
           completed: false
         },
@@ -41,7 +39,7 @@ export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHour
           topic,
           type: 'Quiz',
           duration: Math.floor(dailyHours * 60 * 0.2),
-          description: `Test your knowledge of ${topic}`,
+          description: `Test ${topic} knowledge`,
           resources: [],
           completed: false
         }
@@ -49,75 +47,113 @@ export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHour
     });
   }
 
-  // Try to enhance with AI description
   try {
-    const prompt = `Create a brief study tip for learning ${subject}. Topics: ${limitedTopics.join(', ')}. Keep it under 100 words.`;
+    const prompt = `Brief study tip for ${subject}: ${limitedTopics.join(', ')}. Max 100 words.`;
     const aiTip = await generateAIResponse(prompt);
     
     if (aiTip && !aiTip.includes('AI services are temporarily busy') && schedule[0]?.tasks[0]) {
       schedule[0].tasks[0].description = aiTip.substring(0, 200);
     }
   } catch (e) {
-    console.log('AI enhancement failed, using default descriptions');
+    console.log('AI enhancement skipped');
   }
 
   return { schedule };
 };
 
 export const getTopicExplanation = async (topic, style = 'simple') => {
-  const prompt = style === 'simple'
-    ? `Explain "${topic}" simply in 3 sentences.`
-    : `Explain "${topic}" with key concepts and examples.`;
+  const prompt = `Create learning module for: ${topic}
+
+Return ONLY valid JSON:
+{
+  "title": "${topic}",
+  "simpleExplanation": "2-3 sentences",
+  "detailedExplanation": "detailed paragraph",
+  "keyPoints": ["point1", "point2", "point3"],
+  "examples": ["example1", "example2"],
+  "realWorldApplications": ["app1", "app2"],
+  "youtubeLinks": [
+    {"title": "video title", "url": "https://youtube.com/watch?v=xxx"}
+  ]
+}`;
 
   try {
     const response = await generateAIResponse(prompt);
     
     if (!response || response.includes('AI services are temporarily busy')) {
-      return {
-        topic,
-        simple: style === 'simple' ? `${topic} is an important concept to understand. It involves key principles and applications. Study the fundamentals first.` : '',
-        detailed: style === 'detailed' ? `${topic} involves several key concepts and practical applications. Focus on understanding the core principles.` : '',
-        keyPoints: [`Understand ${topic} basics`, `Practice examples`, `Apply concepts`],
-        examples: [`Basic ${topic} example`, `Real-world application`],
-        realWorldApplications: [`Used in industry`, `Academic applications`],
-      };
+      return createFallbackExplanation(topic);
     }
 
-    return {
-      topic,
-      simple: style === 'simple' ? response : '',
-      detailed: style === 'detailed' ? response : '',
-      keyPoints: [`Key concept 1`, `Key concept 2`, `Key concept 3`],
-      examples: [`Example 1`, `Example 2`],
-      realWorldApplications: [`Application 1`, `Application 2`],
-    };
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          topic: parsed.title || topic,
+          simple: parsed.simpleExplanation || '',
+          detailed: parsed.detailedExplanation || '',
+          keyPoints: parsed.keyPoints || [],
+          examples: parsed.examples || [],
+          realWorldApplications: parsed.realWorldApplications || [],
+          youtubeLinks: parsed.youtubeLinks || []
+        };
+      } catch (e) {
+        console.error('JSON parse error:', e);
+      }
+    }
+    
+    return createFallbackExplanation(topic);
   } catch (error) {
-    console.error("Topic explanation failed:", error);
-    return {
-      topic,
-      simple: `${topic} is an important concept. Study the fundamentals and practice regularly.`,
-      detailed: `${topic} involves key principles and applications. Focus on understanding core concepts.`,
-      keyPoints: [`Understand ${topic} basics`, `Practice examples`],
-      examples: [`Basic example`, `Practical application`],
-      realWorldApplications: [`Industry use`, `Academic application`],
-    };
+    console.error('Topic explanation failed:', error);
+    return createFallbackExplanation(topic);
   }
 };
 
-export const generateQuestions = async (topic, count = 5, difficulty = 'Medium') => {
-  const limitedCount = Math.min(count, 3); // Limit to 3 questions to reduce tokens
-  const prompt = `Generate ${limitedCount} questions about "${topic}".
+function createFallbackExplanation(topic) {
+  return {
+    topic,
+    simple: `${topic} is an important concept in technology and computer science.`,
+    detailed: `${topic} involves understanding core principles and practical applications. Study fundamentals, practice with examples, and apply to real projects.`,
+    keyPoints: [
+      `Understand ${topic} fundamentals`,
+      `Practice with examples`,
+      `Apply to real projects`
+    ],
+    examples: [
+      `Basic ${topic} example`,
+      `Practical ${topic} application`
+    ],
+    realWorldApplications: [
+      `Used in software development`,
+      `Applied in industry solutions`
+    ],
+    youtubeLinks: [
+      {
+        title: `${topic} Tutorial`,
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' tutorial')}`
+      },
+      {
+        title: `${topic} Explained`,
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' explained')}`
+      }
+    ]
+  };
+}
 
-Return JSON array:
+export const generateQuestions = async (topic, count = 5, difficulty = 'Medium') => {
+  const limitedCount = Math.min(count, 5);
+  const prompt = `Generate ${limitedCount} MCQ questions about "${topic}".
+
+Return ONLY valid JSON array:
 [
   {
     "id": "q1",
     "topic": "${topic}",
     "type": "MCQ",
     "question": "Question text?",
-    "options": ["A", "B", "C", "D"],
-    "correctAnswer": "A",
-    "explanation": "Brief explanation",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "Option A",
+    "explanation": "Why this is correct",
     "difficulty": "${difficulty}"
   }
 ]`;
@@ -126,34 +162,38 @@ Return JSON array:
     const response = await generateAIResponse(prompt);
     
     if (!response || response.includes('AI services are temporarily busy')) {
-      return [{
-        id: "q1",
-        topic,
-        type: "MCQ",
-        question: `What is the main concept of ${topic}?`,
-        options: ["Option A", "Option B", "Option C", "Option D"],
-        correctAnswer: "Option A",
-        explanation: "This covers the basic concept",
-        difficulty
-      }];
+      return createFallbackQuestions(topic, limitedCount, difficulty);
     }
     
     const jsonMatch = response.match(/\[[\s\S]*\]/);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed.slice(0, limitedCount);
+    }
+    
+    return createFallbackQuestions(topic, limitedCount, difficulty);
   } catch (e) {
     console.error("Failed to generate questions:", e);
-    return [{
-      id: "q1",
-      topic,
-      type: "MCQ",
-      question: `What is ${topic}?`,
-      options: ["Basic concept", "Advanced topic", "Complex theory", "Simple idea"],
-      correctAnswer: "Basic concept",
-      explanation: "Understanding the fundamentals",
-      difficulty
-    }];
+    return createFallbackQuestions(topic, limitedCount, difficulty);
   }
 };
+
+function createFallbackQuestions(topic, count, difficulty) {
+  const questions = [];
+  for (let i = 0; i < count; i++) {
+    questions.push({
+      id: `q${i + 1}`,
+      topic,
+      type: "MCQ",
+      question: `What is an important aspect of ${topic}?`,
+      options: ["Fundamental concept", "Advanced theory", "Basic principle", "Core idea"],
+      correctAnswer: "Fundamental concept",
+      explanation: "Understanding fundamentals is key",
+      difficulty
+    });
+  }
+  return questions;
+}
 
 export const calculateQuizScore = (questions, answers) => {
   let correctCount = 0;
@@ -177,7 +217,6 @@ export const generateAdaptiveUpdates = (performance, plan) => {
   const topicScores = performance?.topicScores;
   if (!topicScores) return updates;
 
-  // Handle both Map and plain object
   const entries = topicScores instanceof Map
     ? Array.from(topicScores.entries())
     : Object.entries(topicScores);
@@ -191,20 +230,8 @@ export const generateAdaptiveUpdates = (performance, plan) => {
     updates.push({
       action: 'reschedule',
       topic,
-      reason: `Your score in ${topic} is ${score}%. Rescheduling for tomorrow.`,
+      reason: `Score in ${topic}: ${score}%. Rescheduling.`,
       changes: { rescheduleDate: new Date(Date.now() + 24 * 60 * 60 * 1000) }
-    });
-    updates.push({
-      action: 'addPractice',
-      topic,
-      reason: `Adding 5 extra practice questions for ${topic}`,
-      changes: { addQuestions: 5 }
-    });
-    updates.push({
-      action: 'recommendVideo',
-      topic,
-      reason: `Recommending beginner-friendly videos for ${topic}`,
-      changes: { videoLevel: 'Beginner' }
     });
   });
 
@@ -212,7 +239,7 @@ export const generateAdaptiveUpdates = (performance, plan) => {
     updates.push({
       action: 'keepGoing',
       topic: null,
-      reason: 'Great performance! Keep up the current study pace.',
+      reason: 'Great performance! Keep it up.',
       changes: {}
     });
   }
@@ -230,7 +257,7 @@ export const getRecommendedVideos = async (topic) => {
           q: `${topic} tutorial`,
           part: 'snippet',
           type: 'video',
-          maxResults: 4,
+          maxResults: 5,
           key: process.env.YOUTUBE_API_KEY,
           videoDuration: 'medium',
         }
@@ -245,12 +272,11 @@ export const getRecommendedVideos = async (topic) => {
       }));
     }
 
-    // Fallback: use Invidious public API (no key needed)
     const invidiousResponse = await axios.get(
       `https://invidious.privacydev.net/api/v1/search?q=${searchQuery}&type=video&page=1`,
       { timeout: 8000 }
     );
-    return invidiousResponse.data.slice(0, 4).map(item => ({
+    return invidiousResponse.data.slice(0, 5).map(item => ({
       title: item.title,
       channel: item.author,
       url: `https://www.youtube.com/watch?v=${item.videoId}`,
@@ -260,11 +286,10 @@ export const getRecommendedVideos = async (topic) => {
     }));
   } catch (error) {
     console.error("Video API error:", error.message);
-    // Last resort: return curated search links
     return [
       {
-        title: `${topic} - Full Tutorial`,
-        channel: 'YouTube Search',
+        title: `${topic} - Tutorial`,
+        channel: 'YouTube',
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' tutorial')}`,
         thumbnail: '',
         duration: null,
@@ -272,7 +297,7 @@ export const getRecommendedVideos = async (topic) => {
       },
       {
         title: `${topic} for Beginners`,
-        channel: 'YouTube Search',
+        channel: 'YouTube',
         url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' for beginners')}`,
         thumbnail: '',
         duration: null,
@@ -284,22 +309,22 @@ export const getRecommendedVideos = async (topic) => {
 
 export const generateRevisionNotes = async (topic, examMode = false) => {
   const prompt = examMode
-    ? `Generate brief exam notes for "${topic}". Include key points and formulas.`
-    : `Generate study notes for "${topic}". Include main concepts and examples.`;
+    ? `Brief exam notes for "${topic}". Key points and formulas.`
+    : `Study notes for "${topic}". Main concepts and examples.`;
 
   try {
     const response = await generateAIResponse(prompt);
     
     if (!response || response.includes('AI services are temporarily busy')) {
       return examMode
-        ? `# ${topic} - Exam Notes\n\n## Key Points\n- Important concept 1\n- Important concept 2\n\n## Formulas\n- Key formula or definition\n\n## Tips\n- Focus on fundamentals\n- Practice examples`
-        : `# ${topic} - Study Notes\n\n## Introduction\n${topic} is an important subject area.\n\n## Key Concepts\n- Main concept 1\n- Main concept 2\n\n## Examples\n- Basic example\n- Practical application\n\n## Summary\nFocus on understanding the core principles.`;
+        ? `# ${topic} - Exam Notes\n\n## Key Points\n- Important concept 1\n- Important concept 2\n\n## Tips\n- Focus on fundamentals`
+        : `# ${topic} - Study Notes\n\n## Introduction\n${topic} is important.\n\n## Key Concepts\n- Main concept 1\n- Main concept 2`;
     }
     
     return response;
   } catch (error) {
     console.error("Failed to generate notes:", error);
-    return `# ${topic} - Notes\n\nStudy the fundamentals of ${topic}. Practice regularly and focus on key concepts.`;
+    return `# ${topic} - Notes\n\nStudy ${topic} fundamentals.`;
   }
 };
 
