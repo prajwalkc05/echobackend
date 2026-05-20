@@ -3,54 +3,65 @@ import axios from "axios";
 
 export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHours, difficultyLevel }) => {
   const daysUntilExam = Math.max(1, Math.ceil((new Date(examDate) - new Date()) / (1000 * 60 * 60 * 24)));
-  const cappedDays = Math.min(daysUntilExam, 3);
-  const limitedTopics = topics.slice(0, 3);
+  const cappedDays = Math.min(daysUntilExam, 7);
+  const limitedTopics = topics.slice(0, 5);
 
-  // Create a reliable fallback schedule first
-  const fallbackSchedule = {
-    schedule: limitedTopics.map((topic, index) => ({
-      day: `Day ${index + 1}`,
-      date: new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  // Create reliable schedule structure
+  const schedule = [];
+  const taskTypes = ['Learn', 'Practice', 'Review', 'Quiz'];
+  
+  for (let day = 0; day < Math.min(cappedDays, limitedTopics.length); day++) {
+    const topic = limitedTopics[day];
+    const date = new Date(Date.now() + day * 24 * 60 * 60 * 1000);
+    
+    schedule.push({
+      day: `Day ${day + 1}`,
+      date: date.toISOString().split('T')[0],
       tasks: [
         {
-          id: `task_${index}_0`,
+          id: `task_${day}_0`,
           topic,
-          type: "Learn",
-          duration: Math.floor(dailyHours * 60 * 0.6),
-          description: `Learn ${topic} fundamentals`,
+          type: 'Learn',
+          duration: Math.floor(dailyHours * 60 * 0.5),
+          description: `Learn ${topic} fundamentals and core concepts`,
           resources: [],
           completed: false
         },
         {
-          id: `task_${index}_1`,
+          id: `task_${day}_1`,
           topic,
-          type: "Practice",
-          duration: Math.floor(dailyHours * 60 * 0.4),
-          description: `Practice ${topic} exercises`,
+          type: 'Practice',
+          duration: Math.floor(dailyHours * 60 * 0.3),
+          description: `Practice ${topic} with exercises and examples`,
+          resources: [],
+          completed: false
+        },
+        {
+          id: `task_${day}_2`,
+          topic,
+          type: 'Quiz',
+          duration: Math.floor(dailyHours * 60 * 0.2),
+          description: `Test your knowledge of ${topic}`,
           resources: [],
           completed: false
         }
       ]
-    }))
-  };
-
-  try {
-    const prompt = `Create a study plan for ${subject}. Topics: ${limitedTopics.join(', ')}. Daily hours: ${dailyHours}. Return simple text description.`;
-    const response = await generateAIResponse(prompt);
-    
-    // Always return the fallback schedule but with AI description if available
-    if (response && !response.includes('AI services are temporarily busy')) {
-      // Add AI description to the first task
-      if (fallbackSchedule.schedule[0] && fallbackSchedule.schedule[0].tasks[0]) {
-        fallbackSchedule.schedule[0].tasks[0].description = response.substring(0, 200) || fallbackSchedule.schedule[0].tasks[0].description;
-      }
-    }
-    
-    return fallbackSchedule;
-  } catch (e) {
-    console.error("AI generation failed, using fallback:", e.message);
-    return fallbackSchedule;
+    });
   }
+
+  // Try to enhance with AI description
+  try {
+    const prompt = `Create a brief study tip for learning ${subject}. Topics: ${limitedTopics.join(', ')}. Keep it under 100 words.`;
+    const aiTip = await generateAIResponse(prompt);
+    
+    if (aiTip && !aiTip.includes('AI services are temporarily busy') && schedule[0]?.tasks[0]) {
+      schedule[0].tasks[0].description = aiTip.substring(0, 200);
+    }
+  } catch (e) {
+    console.log('AI enhancement failed, using default descriptions');
+  }
+
+  return { schedule };
 };
 
 export const getTopicExplanation = async (topic, style = 'simple') => {
