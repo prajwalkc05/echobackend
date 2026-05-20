@@ -70,7 +70,7 @@ export const generateAIResponse = async (prompt, messages = null, fileContext = 
       messages: chatMessages,
       model: 'llama-3.1-8b-instant',
       temperature: 0.7,
-      max_tokens: 2048,
+      max_tokens: 4096,
     });
     return response.choices[0].message.content;
   } catch (error) {
@@ -79,23 +79,27 @@ export const generateAIResponse = async (prompt, messages = null, fileContext = 
       const orResponse = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
         {
-          model: 'meta-llama/llama-3.1-8b-instruct:free',
+          model: 'mistralai/mistral-7b-instruct:free',
           messages: chatMessages,
+          max_tokens: 4096,
         },
-        { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` } }
+        { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, 'HTTP-Referer': 'https://echomentor.app' } }
       );
       return orResponse.data.choices[0].message.content;
     } catch (orError) {
       console.log('OpenRouter failed → switching to HuggingFace', orError.message);
       try {
-        const hfResponse = await axios.post(
-          'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
-          { inputs: `${MASTER_SYSTEM_PROMPT}\n\nUser: ${prompt}` },
-          { headers: { Authorization: `Bearer ${process.env.HF_API_KEY}` } }
-        );
-        return hfResponse.data[0]?.generated_text || 'No response';
-      } catch (hfError) {
-        console.error('All AI services failed', hfError.message);
+        // Retry Groq with a different model as last resort
+        const groq2 = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const retryResponse = await groq2.chat.completions.create({
+          messages: chatMessages,
+          model: 'gemma2-9b-it',
+          temperature: 0.7,
+          max_tokens: 4096,
+        });
+        return retryResponse.choices[0].message.content;
+      } catch (retryError) {
+        console.error('All AI services failed', retryError.message);
         throw new Error('AI service unavailable. Please try again later.');
       }
     }

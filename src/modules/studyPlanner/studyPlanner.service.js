@@ -2,49 +2,35 @@ import { generateAIResponse } from "../../utils/aiHelper.js";
 import axios from "axios";
 
 export const generateStudyPlanAI = async ({ subject, topics, examDate, dailyHours, difficultyLevel }) => {
-  const daysUntilExam = Math.ceil((new Date(examDate) - new Date()) / (1000 * 60 * 60 * 24));
-  
-  const prompt = `Create a detailed ${daysUntilExam}-day study plan for a student.
+  const daysUntilExam = Math.max(1, Math.ceil((new Date(examDate) - new Date()) / (1000 * 60 * 60 * 24)));
+  const cappedDays = Math.min(daysUntilExam, 7); // cap to 7 days to avoid token overflow
 
-Subject: ${subject}
-Topics: ${topics.join(", ")}
-Daily Study Hours: ${dailyHours}
-Difficulty Level: ${difficultyLevel}
-Days Until Exam: ${daysUntilExam}
+  const prompt = `Create a ${cappedDays}-day study plan. Return ONLY valid JSON, no extra text.
 
-Generate a JSON response with this structure:
-{
-  "schedule": [
-    {
-      "day": "Day 1",
-      "date": "2024-01-15",
-      "tasks": [
-        {
-          "topic": "Topic Name",
-          "type": "Learn|Practice|Review|Quiz",
-          "duration": 60,
-          "description": "Task description"
-        }
-      ]
-    }
-  ]
-}
+Subject: ${subject}, Topics: ${topics.slice(0, 5).join(", ")}, Daily Hours: ${dailyHours}, Difficulty: ${difficultyLevel}
 
-Requirements:
-- Distribute topics evenly across days
-- Include Learn, Practice, Review, and Quiz tasks
-- Add revision cycles
-- Balance difficulty progression
-- Allocate time based on dailyHours
-- Return ONLY valid JSON`;
+{"schedule":[{"day":"Day 1","date":"YYYY-MM-DD","tasks":[{"topic":"string","type":"Learn|Practice|Review|Quiz","duration":60,"description":"string"}]}]}`;
 
   const response = await generateAIResponse(prompt);
-  
+
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : { schedule: [] };
+    if (!jsonMatch) return { schedule: [] };
+    // Attempt to fix truncated JSON by trimming to last complete object
+    let raw = jsonMatch[0];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // Find last complete day entry and close the JSON
+      const lastComplete = raw.lastIndexOf('},');
+      if (lastComplete > 0) {
+        raw = raw.substring(0, lastComplete + 1) + ']}';
+        return JSON.parse(raw);
+      }
+      return { schedule: [] };
+    }
   } catch (e) {
-    console.error("Failed to parse AI response:", e);
+    console.error("Failed to parse AI response:", e.message);
     return { schedule: [] };
   }
 };
