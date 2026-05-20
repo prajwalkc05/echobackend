@@ -126,12 +126,20 @@ async function tryOpenRouter(chatMessages) {
 }
 
 export const generateAIResponse = async (prompt, messages = null, fileContext = null) => {
-  if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not configured');
+  if (!process.env.GROQ_API_KEY) {
+    console.error('GROQ_API_KEY is not set in environment variables');
+    return 'AI service is not configured. Please contact support.';
+  }
   const chatMessages = buildMessages(messages, prompt, fileContext);
   try {
     return await tryGroq(chatMessages);
-  } catch {
-    console.log('Groq exhausted → trying OpenRouter');
-    return await tryOpenRouter(chatMessages);
+  } catch (groqErr) {
+    console.log('Groq exhausted → trying OpenRouter:', groqErr.message);
+    try {
+      return await tryOpenRouter(chatMessages);
+    } catch (orErr) {
+      console.error('All AI services failed:', orErr.message);
+      return 'AI service is temporarily unavailable due to high demand. Please try again in a moment.';
+    }
   }
 };
