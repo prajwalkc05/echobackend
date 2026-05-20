@@ -61,47 +61,72 @@ When the user says "it", "this", "that file", "read it", "explain it", "summariz
   ];
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const groqModels = ['llama-3.1-8b-instant', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
+
+async function tryGroq(chatMessages) {
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  for (const model of groqModels) {
+    try {
+      const response = await groq.chat.completions.create({
+        messages: chatMessages,
+        model,
+        temperature: 0.7,
+        max_tokens: 4096,
+      });
+      return response.choices[0].message.content;
+    } catch (err) {
+      const isRateLimit = err.status === 429;
+      const retryAfterMs = isRateLimit
+        ? (parseFloat(err.message?.match(/try again in ([\d.]+)s/i)?.[1] || '5') * 1000)
+        : 0;
+      if (isRateLimit && retryAfterMs < 15000) {
+        await sleep(retryAfterMs + 500);
+        const retry = await groq.chat.completions.create({
+          messages: chatMessages, model, temperature: 0.7, max_tokens: 4096,
+        });
+        return retry.choices[0].message.content;
+      }
+      console.log(`Groq model ${model} failed:`, err.message);
+    }
+  }
+  throw new Error('All Groq models failed');
+}
+
+async function tryOpenRouter(chatMessages) {
+  const models = [
+    'mistralai/mistral-7b-instruct:free',
+    'google/gemma-2-9b-it:free',
+    'meta-llama/llama-3.2-3b-instruct:free',
+  ];
+  for (const model of models) {
+    try {
+      const res = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        { model, messages: chatMessages, max_tokens: 4096 },
+        { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, 'HTTP-Referer': 'https://echomentor.app' } }
+      );
+      return res.data.choices[0].message.content;
+    } catch (err) {
+      console.log(`OpenRouter model ${model} failed:`, err.message);
+    }
+  }
+  throw new Error('All OpenRouter models failed');
+}
+
 export const generateAIResponse = async (prompt, messages = null, fileContext = null) => {
   const chatMessages = buildMessages(messages, prompt, fileContext);
 
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const response = await groq.chat.completions.create({
-      messages: chatMessages,
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.7,
-      max_tokens: 4096,
-    });
-    return response.choices[0].message.content;
-  } catch (error) {
-    console.log('Groq failed → switching to OpenRouter', error.message);
+    return await tryGroq(chatMessages);
+  } catch (groqErr) {
+    console.log('Groq failed → switching to OpenRouter:', groqErr.message);
     try {
-      const orResponse = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          model: 'mistralai/mistral-7b-instruct:free',
-          messages: chatMessages,
-          max_tokens: 4096,
-        },
-        { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, 'HTTP-Referer': 'https://echomentor.app' } }
-      );
-      return orResponse.data.choices[0].message.content;
-    } catch (orError) {
-      console.log('OpenRouter failed → switching to HuggingFace', orError.message);
-      try {
-        // Retry Groq with a different model as last resort
-        const groq2 = new Groq({ apiKey: process.env.GROQ_API_KEY });
-        const retryResponse = await groq2.chat.completions.create({
-          messages: chatMessages,
-          model: 'gemma2-9b-it',
-          temperature: 0.7,
-          max_tokens: 4096,
-        });
-        return retryResponse.choices[0].message.content;
-      } catch (retryError) {
-        console.error('All AI services failed', retryError.message);
-        throw new Error('AI service unavailable. Please try again later.');
-      }
+      return await tryOpenRouter(chatMessages);
+    } catch (orErr) {
+      console.error('All AI services failed:', orErr.message);
+      throw new Error('AI service unavailable. Please try again later.');
     }
   }
 };
