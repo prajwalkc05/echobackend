@@ -4,34 +4,10 @@ import { checkDailyLimit } from './ai.service.js';
 import { processFiles } from '../../utils/fileProcessor.js';
 import Chat from './ai.model.js';
 
-const FILE_SYSTEM_PROMPT = `You are EchoMentor AI, a professional AI assistant.
-
-The user has uploaded one or more files. Their content has been extracted and provided below.
-
-RULES:
-1. Read the file content carefully before answering.
-2. Answer questions based on the file content.
-3. If asked to summarize — give a clean structured summary.
-4. If asked for code — extract and format it properly.
-5. If asked to generate MCQs — create them from the file content.
-6. Use markdown formatting for all responses.
-7. Never mention "extracted text" or technical processing details to the user.
-8. Respond naturally as if you read the document yourself.`;
-
 export const chatWithAI = async (req, res) => {
   try {
     const { message, messages: messagesRaw } = req.body || {};
     const files = req.files || [];
-
-    // When sent as FormData, messages arrives as a JSON string — parse it
-    let messages = null;
-    if (messagesRaw) {
-      try {
-        messages = typeof messagesRaw === 'string' ? JSON.parse(messagesRaw) : messagesRaw;
-      } catch {
-        messages = null;
-      }
-    }
 
     if (!message && files.length === 0) {
       return res.status(400).json({ error: 'Message or file is required' });
@@ -42,32 +18,46 @@ export const chatWithAI = async (req, res) => {
       return res.status(403).json({ error: 'Daily limit reached (20 chats). Upgrade to Pro 🚀' });
     }
 
-    let chatMessages;
-
-    if (files.length > 0) {
-      // File upload flow — extract text and inject into context
-      const extractedText = await processFiles(files);
-      const userQuestion = message || 'Please summarize this file.';
-
-      chatMessages = [
-        { role: 'system', content: FILE_SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `FILE CONTENT:\n${extractedText}\n\nUSER QUESTION:\n${userQuestion}`,
-        },
-      ];
-    } else if (messages && Array.isArray(messages) && messages.length > 0) {
-      // Full conversation history sent from frontend — use as-is
-      chatMessages = messages;
-    } else {
-      // Fallback: single message
-      chatMessages = null;
+    // Parse messages array (arrives as JSON string when sent via FormData)
+    let messages = null;
+    if (messagesRaw) {
+      try {
+        messages = typeof messagesRaw === 'string' ? JSON.parse(messagesRaw) : messagesRaw;
+      } catch {
+        messages = null;
+      }
     }
 
-    const aiResponse = await generateAIResponse(message || 'Analyze the file.', chatMessages);
+    // If files uploaded — extract content and inject as a system context message
+    // This is merged INTO the conversation history so follow-up questions still have context
+    if (files.length > 0) {
+      const extractedText = await processFiles(files);
+      const fileNames = files.map(f => f.originalname).join(', ');
+
+      const fileContextMessage = {
+        role: 'system',
+        content: `The user has uploaded the following file(s): ${fileNames}\n\nEXTRACTED FILE CONTENT:\n${extractedText}\n\nUse this content to answer all user questions. Never say you cannot read the file.`,
+      };
+
+      // Merge: existing conversation + file context + current user message
+      const existingMessages = Array.isArray(messages) ? messages.filter(m => m.role !== 'system') : [];
+      const userMessage = message || 'Please analyze and explain this file.';
+
+      messages = [
+        ...existingMessages,
+        fileContextMessage,
+        { role: 'user', content: userMessage },
+      ];
+    }
+
+    const aiResponse = await generateAIResponse(message || 'Analyze the uploaded file.', messages);
     const formattedReply = formatAIResponse(aiResponse);
 
-    await Chat.create({ userId: req.user._id, message: message || '[File Upload]', reply: formattedReply });
+    await Chat.create({
+      userId: req.user._id,
+      message: message || `[File Upload: ${files.map(f => f.originalname).join(', ')}]`,
+      reply: formattedReply,
+    });
 
     res.json({ success: true, reply: formattedReply, remainingChats: remaining - 1 });
   } catch (error) {

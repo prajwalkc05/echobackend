@@ -19,6 +19,36 @@ function chunkText(text, size = CHUNK_SIZE) {
   return chunks;
 }
 
+// Extract text from PPTX by reading slide XML files inside the ZIP
+function extractPptxText(buffer) {
+  try {
+    const zip = new AdmZip(buffer);
+    const entries = zip.getEntries();
+    const slideEntries = entries
+      .filter(e => e.entryName.match(/^ppt\/slides\/slide\d+\.xml$/))
+      .sort((a, b) => {
+        const na = parseInt(a.entryName.match(/\d+/)?.[0] || '0');
+        const nb = parseInt(b.entryName.match(/\d+/)?.[0] || '0');
+        return na - nb;
+      });
+
+    const slides = slideEntries.map((entry, i) => {
+      const xml = entry.getData().toString('utf8');
+      // Extract all <a:t> text nodes (actual slide text)
+      const textMatches = xml.match(/<a:t[^>]*>([^<]+)<\/a:t>/g) || [];
+      const text = textMatches
+        .map(t => t.replace(/<[^>]+>/g, '').trim())
+        .filter(t => t.length > 0)
+        .join(' ');
+      return `Slide ${i + 1}:\n${text}`;
+    });
+
+    return slides.filter(s => s.split('\n')[1]?.trim()).join('\n\n') || 'No text content found in slides.';
+  } catch (err) {
+    return `Could not extract PPTX content: ${err.message}`;
+  }
+}
+
 async function extractFromBuffer(buffer, mimetype, originalname) {
   const ext = path.extname(originalname).toLowerCase();
 
@@ -35,6 +65,15 @@ async function extractFromBuffer(buffer, mimetype, originalname) {
   ) {
     const result = await mammoth.extractRawText({ buffer });
     return { text: result.value, type: 'DOCX' };
+  }
+
+  // PPTX — extract slide text from XML
+  if (
+    mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    ext === '.pptx'
+  ) {
+    const text = extractPptxText(buffer);
+    return { text, type: 'PPTX' };
   }
 
   // Plain text / code files
@@ -69,7 +108,7 @@ async function extractFromBuffer(buffer, mimetype, originalname) {
     for (const entry of entries) {
       if (entry.isDirectory) continue;
       const entryExt = path.extname(entry.entryName).toLowerCase();
-      if (TEXT_EXTENSIONS.has(entryExt) || entryExt === '.txt' || entryExt === '.md') {
+      if (TEXT_EXTENSIONS.has(entryExt)) {
         const content = entry.getData().toString('utf8');
         parts.push(`--- ${entry.entryName} ---\n${content}`);
       }
@@ -77,10 +116,10 @@ async function extractFromBuffer(buffer, mimetype, originalname) {
     return { text: parts.join('\n\n') || 'No readable text files found in ZIP.', type: 'ZIP' };
   }
 
-  // Image — return metadata only (no OCR without external service)
+  // Image
   if (mimetype.startsWith('image/')) {
     return {
-      text: `[Image file: ${originalname} (${mimetype}). Describe what you see or ask questions about this image.]`,
+      text: `[Image file: ${originalname}. The user has uploaded an image. Acknowledge it and ask what they need help with.]`,
       type: 'Image',
     };
   }
@@ -96,10 +135,10 @@ export async function processFiles(files) {
   );
 
   const combined = results
-    .map((r, i) => `=== FILE ${i + 1}: ${files[i].originalname} (${r.type}) ===\n${r.text}`)
+    .map((r, i) => `=== FILE: ${files[i].originalname} (${r.type}) ===\n${r.text}`)
     .join('\n\n');
 
-  // Chunk if too large, return first 3 chunks (~12000 chars) to stay within token limits
+  // Keep first 3 chunks (~12000 chars) to stay within token limits
   const chunks = chunkText(combined);
   return chunks.slice(0, 3).join('\n\n[...continued...]\n\n');
 }
