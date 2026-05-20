@@ -4,13 +4,29 @@ import { checkDailyLimit } from './ai.service.js';
 import { processFiles } from '../../utils/fileProcessor.js';
 import Chat from './ai.model.js';
 
+// Dedicated endpoint: extract file text and return it to frontend
+// Frontend stores this text in the session, sends it back on every message
+export const extractFile = async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'No files provided' });
+    }
+    const extractedText = await processFiles(files);
+    const fileNames = files.map(f => f.originalname);
+    res.json({ success: true, extractedText, fileNames });
+  } catch (error) {
+    console.error('File extraction error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const chatWithAI = async (req, res) => {
   try {
-    const { message, messages: messagesRaw } = req.body || {};
-    const files = req.files || [];
+    const { message, messages: messagesRaw, fileContext } = req.body || {};
 
-    if (!message && files.length === 0) {
-      return res.status(400).json({ error: 'Message or file is required' });
+    if (!message && !fileContext) {
+      return res.status(400).json({ error: 'Message is required' });
     }
 
     const { allowed, remaining } = await checkDailyLimit(req.user._id, req.user.subscriptionPlan);
@@ -18,7 +34,7 @@ export const chatWithAI = async (req, res) => {
       return res.status(403).json({ error: 'Daily limit reached (20 chats). Upgrade to Pro 🚀' });
     }
 
-    // Parse messages array (arrives as JSON string when sent via FormData)
+    // Parse conversation history
     let messages = null;
     if (messagesRaw) {
       try {
@@ -28,36 +44,37 @@ export const chatWithAI = async (req, res) => {
       }
     }
 
-    // If files uploaded — extract content and inject as a system context message
-    // This is merged INTO the conversation history so follow-up questions still have context
-    if (files.length > 0) {
-      const extractedText = await processFiles(files);
-      const fileNames = files.map(f => f.originalname).join(', ');
+    // Build messages array:
+    // [system prompt] + [file context as system msg if present] + [conversation history] + [user message]
+    let chatMessages = [];
 
-      const fileContextMessage = {
-        role: 'system',
-        content: `The user has uploaded the following file(s): ${fileNames}\n\nEXTRACTED FILE CONTENT:\n${extractedText}\n\nUse this content to answer all user questions. Never say you cannot read the file.`,
-      };
+    if (Array.isArray(messages) && messages.length > 0) {
+      // Strip any existing system messages — aiHelper will inject the master prompt
+      chatMessages = messages.filter(m => m.role !== 'system');
+    }
 
-      // Merge: existing conversation + file context + current user message
-      const existingMessages = Array.isArray(messages) ? messages.filter(m => m.role !== 'system') : [];
-      const userMessage = message || 'Please analyze and explain this file.';
-
-      messages = [
-        ...existingMessages,
-        fileContextMessage,
-        { role: 'user', content: userMessage },
+    // Inject file context as a system message BEFORE conversation history
+    // This ensures AI always has file content regardless of which message it's on
+    if (fileContext && fileContext.trim()) {
+      chatMessages = [
+        {
+          role: 'system',
+          content: `The user has uploaded file(s) in this conversation. Here is the extracted content:\n\n${fileContext}\n\nUse this content to answer all questions. When user says "it", "this", "that file", "read it", "explain it" — refer to this file content.`,
+        },
+        ...chatMessages,
       ];
     }
 
-    const aiResponse = await generateAIResponse(message || 'Analyze the uploaded file.', messages);
+    // Ensure current user message is the last entry
+    const lastMsg = chatMessages[chatMessages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content !== message) {
+      chatMessages.push({ role: 'user', content: message });
+    }
+
+    const aiResponse = await generateAIResponse(message, chatMessages.length > 0 ? chatMessages : null);
     const formattedReply = formatAIResponse(aiResponse);
 
-    await Chat.create({
-      userId: req.user._id,
-      message: message || `[File Upload: ${files.map(f => f.originalname).join(', ')}]`,
-      reply: formattedReply,
-    });
+    await Chat.create({ userId: req.user._id, message, reply: formattedReply });
 
     res.json({ success: true, reply: formattedReply, remainingChats: remaining - 1 });
   } catch (error) {
