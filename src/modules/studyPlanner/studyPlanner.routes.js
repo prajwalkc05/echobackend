@@ -13,6 +13,7 @@ import {
   getAnalytics
 } from "./studyPlanner.controller.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
+import youtubeRoutes from "./youtube.routes.js";
 
 const router = express.Router();
 
@@ -30,5 +31,8 @@ router.get("/:planId/adaptive", authMiddleware, getAdaptiveUpdates);
 router.post("/notes", authMiddleware, generateNotes);
 router.get("/:planId", authMiddleware, getPlanDetails);
 router.get("/:planId/analytics", authMiddleware, getAnalytics);
+
+// YouTube routes
+router.use("/youtube", youtubeRoutes);
 
 export default router;
