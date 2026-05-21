@@ -9,6 +9,7 @@ import {
   generateRevisionNotes,
   calculatePerformanceMetrics
 } from "./studyPlanner.service.js";
+import { generateAIResponse } from "../../utils/aiHelper.js";
 
 // Legacy controller
 export const createStudyPlan = async (req, res) => {
@@ -268,6 +269,7 @@ export const markTaskCompleted = async (req, res) => {
 // Get study history
 export const getStudyHistory = async (req, res) => {
   try {
+    console.log('Getting study history for user:', req.user._id);
     const { page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
 
@@ -278,11 +280,15 @@ export const getStudyHistory = async (req, res) => {
       .limit(parseInt(limit))
       .select('subject topics examDate dailyHours performance createdAt updatedAt');
 
+    console.log('Found plans:', plans.length);
+
     // Get quiz attempts
     const quizAttempts = await QuizAttempt.find({ userId: req.user._id })
       .sort({ timestamp: -1 })
       .limit(20)
       .select('topic score timestamp weakAreas');
+
+    console.log('Found quiz attempts:', quizAttempts.length);
 
     // Calculate overall stats
     const totalPlans = await StudyPlan.countDocuments({ userId: req.user._id });
@@ -300,7 +306,7 @@ export const getStudyHistory = async (req, res) => {
       ? Math.max(...plans.map(plan => plan.performance?.studyStreak || 0))
       : 0;
 
-    res.json({
+    const response = {
       success: true,
       history: {
         plans,
@@ -318,9 +324,17 @@ export const getStudyHistory = async (req, res) => {
           hasMore: skip + plans.length < totalPlans
         }
       }
-    });
+    };
+
+    console.log('Sending response:', JSON.stringify(response, null, 2));
+    res.json(response);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Study history error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      message: 'Failed to retrieve study history'
+    });
   }
 };
 
@@ -503,6 +517,40 @@ const generateFallbackTopics = (subject, level, count) => {
   }
   
   return topics.slice(0, count);
+};
+
+// Get analytics for a plan
+export const getAnalytics = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const plan = await StudyPlan.findById(planId);
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+    const quizAttempts = await QuizAttempt.find({ planId });
+    const completedTasks = plan.schedule.reduce((acc, day) =>
+      acc + day.tasks.filter(t => t.completed).length, 0);
+    const totalTasks = plan.schedule.reduce((acc, day) => acc + day.tasks.length, 0);
+    const avgScore = quizAttempts.length > 0
+      ? Math.round(quizAttempts.reduce((sum, q) => sum + q.score, 0) / quizAttempts.length)
+      : 0;
+
+    res.json({
+      success: true,
+      analytics: {
+        completedTasks,
+        totalTasks,
+        progressPercentage: Math.round((completedTasks / totalTasks) * 100) || 0,
+        totalQuizzes: quizAttempts.length,
+        averageScore: avgScore,
+        studyStreak: plan.performance?.studyStreak || 0,
+        totalHoursSpent: plan.performance?.totalHoursSpent || 0,
+        weakTopics: plan.performance?.weakTopics || [],
+        strongTopics: plan.performance?.strongTopics || [],
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 // Enhanced analytics with detailed tracking
