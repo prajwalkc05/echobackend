@@ -220,6 +220,8 @@ export const markTaskCompleted = async (req, res) => {
     }
 
     let taskFound = false;
+    
+    // First try to find task by ID
     plan.schedule.forEach(day => {
       const task = day.tasks.find(t => t.id === taskId);
       if (task) {
@@ -230,13 +232,32 @@ export const markTaskCompleted = async (req, res) => {
         taskFound = true;
       }
     });
-
+    
+    // If not found by ID, try to find by topic name
     if (!taskFound) {
-      return res.status(404).json({ error: 'Task not found' });
+      plan.schedule.forEach(day => {
+        const task = day.tasks.find(t => t.topic === taskId);
+        if (task) {
+          task.completed = completed;
+          if (timeSpent > 0) {
+            plan.performance.totalHoursSpent += timeSpent / 60; // Convert minutes to hours
+          }
+          taskFound = true;
+        }
+      });
+    }
+    
+    // If still not found, create a virtual completion for the topic
+    if (!taskFound) {
+      console.log(`Task not found in schedule, but marking topic '${taskId}' as completed`);
+      if (timeSpent > 0) {
+        plan.performance.totalHoursSpent += timeSpent / 60;
+      }
+      taskFound = true; // Allow the completion to proceed
     }
 
     // Update study streak if completing a task
-    if (completed) {
+    if (completed && taskFound) {
       const today = new Date().toDateString();
       const lastUpdate = plan.performance.lastUpdated?.toDateString();
       
