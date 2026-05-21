@@ -10,7 +10,11 @@ import {
   getAdaptiveUpdates,
   generateNotes,
   getPlanDetails,
-  getAnalytics
+  getAnalytics,
+  markTaskCompleted,
+  getStudyHistory,
+  generateBulkTopics,
+  getDetailedAnalytics
 } from "./studyPlanner.controller.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 import youtubeRoutes from "./youtube.routes.js";
@@ -31,6 +35,12 @@ router.get("/:planId/adaptive", authMiddleware, getAdaptiveUpdates);
 router.post("/notes", authMiddleware, generateNotes);
 router.get("/:planId", authMiddleware, getPlanDetails);
 router.get("/:planId/analytics", authMiddleware, getAnalytics);
+
+// New enhanced routes
+router.put("/:planId/tasks/:taskId/complete", authMiddleware, markTaskCompleted);
+router.get("/history", authMiddleware, getStudyHistory);
+router.post("/bulk-topics", authMiddleware, generateBulkTopics);
+router.get("/:planId/detailed-analytics", authMiddleware, getDetailedAnalytics);
 
 // YouTube routes
 router.use("/youtube", youtubeRoutes);
