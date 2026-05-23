@@ -11,6 +11,7 @@ import adminRoutes from "../modules/admin/admin.routes.js";
 import notificationRoutes from "../modules/notifications/notifications.routes.js";
 import codeAssistantRoutes from "../modules/codeAssistant/codeAssistant.routes.js";
 import startupRoutes from "../modules/startup/startup.routes.js";
+import coursesRoutes from "../modules/courses/courses.routes.js";
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use("/admin", adminRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/code", codeAssistantRoutes);
 router.use("/startup", startupRoutes);
+router.use("/courses", coursesRoutes);
 
 export default router;
