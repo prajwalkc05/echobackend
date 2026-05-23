@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import User from "../auth/auth.model.js";
 
 export const getProfile = async (req, res) => {
@@ -64,6 +65,95 @@ export const saveCourseOnboarding = async (req, res) => {
       { returnDocument: 'after', select: '-password' }
     );
     res.json({ success: true, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both fields required' });
+    const user = await User.findById(req.user._id);
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) return res.status(400).json({ error: 'Current password is incorrect' });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const toggleTwoFactor = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    user.twoFactorEnabled = !user.twoFactorEnabled;
+    await user.save();
+    res.json({ success: true, twoFactorEnabled: user.twoFactorEnabled });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getSessions = async (req, res) => {
+  // Returns the current active session info derived from the JWT
+  const token = req.headers.authorization?.split(' ')[1];
+  res.json({
+    success: true,
+    sessions: [{
+      id: 'current',
+      device: req.headers['user-agent'] || 'Unknown device',
+      ip: req.ip,
+      current: true,
+      createdAt: new Date(),
+    }],
+  });
+};
+
+export const getPrivacy = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('privacy cookies');
+    res.json({ success: true, privacy: user.privacy, cookies: user.cookies });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updatePrivacy = async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { privacy: req.body } },
+      { returnDocument: 'after', select: 'privacy' }
+    );
+    res.json({ success: true, privacy: updated.privacy });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateCookies = async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { cookies: req.body } },
+      { returnDocument: 'after', select: 'cookies' }
+    );
+    res.json({ success: true, cookies: updated.cookies });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const user = await User.findById(req.user._id);
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(400).json({ error: 'Incorrect password' });
+    await User.findByIdAndDelete(req.user._id);
+    res.json({ success: true, message: 'Account deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -42,6 +42,19 @@ const userSchema = new mongoose.Schema({
       skills: { type: [String], default: [] },
     }, { _id: true })
   ],
+
+  twoFactorEnabled: { type: Boolean, default: false },
+
+  privacy: {
+    shareData: { type: Boolean, default: false },
+    analytics: { type: Boolean, default: true },
+  },
+
+  cookies: {
+    functional: { type: Boolean, default: true },
+    analytics: { type: Boolean, default: true },
+    marketing: { type: Boolean, default: false },
+  },
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);
