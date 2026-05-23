@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
     learningStyle: String,
     location: String,
     onboardingCompleted: { type: Boolean, default: false },
+    careerGoal: String,
+    skillLevel: String,
+    mainGoal: String,
+    courseOnboardingCompleted: { type: Boolean, default: false },
   },
 
   bookmarks: [

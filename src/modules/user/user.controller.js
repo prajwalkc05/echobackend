@@ -45,3 +45,26 @@ export const saveOnboarding = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const saveCourseOnboarding = async (req, res) => {
+  try {
+    const { careerGoal, interests, learningStyle, skillLevel, mainGoal } = req.body;
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          'profile.careerGoal': careerGoal || '',
+          'profile.interests': interests || [],
+          'profile.learningStyle': learningStyle || '',
+          'profile.skillLevel': skillLevel || '',
+          'profile.mainGoal': mainGoal || '',
+          'profile.courseOnboardingCompleted': true,
+        },
+      },
+      { returnDocument: 'after', select: '-password' }
+    );
+    res.json({ success: true, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
