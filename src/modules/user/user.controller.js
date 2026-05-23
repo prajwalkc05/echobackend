@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import User from "../auth/auth.model.js";
 
 export const getProfile = async (req, res) => {
