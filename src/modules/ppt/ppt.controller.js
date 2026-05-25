@@ -1,5 +1,7 @@
 import { generateSlidesWithImages, createPPT } from "./ppt.service.js";
 import PPT from "./ppt.model.js";
+import fs from "fs";
+import path from "path";
 
 // New endpoint: returns JSON slides for frontend renderer (SlideAI platform)
 export const generateSlidesJSON = async (req, res) => {
@@ -46,17 +48,39 @@ export const generateSlidesJSON = async (req, res) => {
 // Existing endpoint: generates and downloads .pptx file
 export const generatePPT = async (req, res) => {
   try {
-    const { topic, slides = 5, theme = "light", layout = "titleContent" } = req.body;
+    const {
+      topic,
+      slides = 5,
+      theme = "light",
+      layout = "titleContent",
+      presentationType = "business",
+      tone = "professional",
+      audience = "general"
+    } = req.body;
 
     if (!topic) return res.status(400).json({ error: "Topic is required" });
 
-    const slidesData = await generateSlidesWithImages(topic, slides);
+    const slidesData = await generateSlidesWithImages(topic, slides, presentationType, tone, audience);
 
     if (!slidesData.length) {
       return res.status(500).json({ error: "Failed to generate slide content" });
     }
 
     const pptBuffer = await createPPT(slidesData, theme, layout);
+
+    // Save presentation backup to 'exports' folder (create if it doesn't exist)
+    try {
+      const exportsDir = path.join(process.cwd(), "exports");
+      if (!fs.existsSync(exportsDir)) {
+        fs.mkdirSync(exportsDir, { recursive: true });
+      }
+      const safeFilename = `${topic.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_")}.pptx`;
+      const filePath = path.join(exportsDir, safeFilename);
+      fs.writeFileSync(filePath, pptBuffer);
+      console.log(`💾 PPTX saved to local exports folder: ${filePath}`);
+    } catch (fsErr) {
+      console.error("⚠️ Failed to write PPTX to local exports folder:", fsErr.message);
+    }
 
     const record = await PPT.create({ userId: req.user._id, topic, slides, theme, layout });
 
