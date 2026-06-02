@@ -6,7 +6,7 @@ const ADMIN_USERS = [
   {
     id: 'admin-1',
     email: 'admin@echomentor.com',
-    password: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: admin123
+    password: '$2b$10$fjg4oZlHXbu5ZufEI5PBKuGm6ldoGopHN.nj9kIYACvuMDwpVM0cS', // password: admin123
     name: 'Admin User',
     role: 'super_admin'
   }
