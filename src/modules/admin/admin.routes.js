@@ -1,14 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { adminLogin, verifyAdmin } from './admin.controller.js';
+import User from '../auth/auth.model.js';
+import AIChat from '../ai/ai.model.js';
+import CodeAssistant from '../codeAssistant/codeAssistant.model.js';
+import Resume from '../resume/resume.model.js';
+import PPT from '../ppt/ppt.model.js';
+import Mood from '../mood/mood.model.js';
+import StudyPlanner from '../studyPlanner/studyPlanner.model.js';
+import Opportunity from '../opportunities/opportunities.model.js';
+
 const router = express.Router();
-const { adminLogin, verifyAdmin } = require('./admin.controller');
-const User = require('../auth/auth.model');
-const AIChat = require('../ai/ai.model');
-const CodeAssistant = require('../codeAssistant/codeAssistant.model');
-const Resume = require('../resume/resume.model');
-const PPT = require('../ppt/ppt.model');
-const Mood = require('../mood/mood.model');
-const StudyPlanner = require('../studyPlanner/studyPlanner.model');
-const Opportunity = require('../opportunities/opportunities.model');
 
 // Admin authentication
 router.post('/auth/login', adminLogin);
@@ -219,4 +220,4 @@ function getTimeAgo(date) {
   return `${Math.floor(hours / 24)} days ago`;
 }
 
-module.exports = router;
+export default router;

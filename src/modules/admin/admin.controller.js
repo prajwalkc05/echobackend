@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 // Hardcoded admin credentials (should be in environment variables in production)
 const ADMIN_USERS = [
@@ -12,7 +12,7 @@ const ADMIN_USERS = [
   }
 ];
 
-exports.adminLogin = async (req, res) => {
+export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -55,7 +55,7 @@ exports.adminLogin = async (req, res) => {
   }
 };
 
-exports.verifyAdmin = async (req, res, next) => {
+export const verifyAdmin = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
 
