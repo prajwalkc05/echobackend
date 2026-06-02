@@ -8,8 +8,23 @@ import PPT from '../ppt/ppt.model.js';
 import Mood from '../mood/mood.model.js';
 import StudyPlanner from '../studyPlanner/studyPlanner.model.js';
 import Opportunity from '../opportunities/opportunities.model.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
+
+// Admin Course Model
+const courseSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  platform: String,
+  rating: String,
+  duration: String,
+  level: String,
+  price: String,
+  description: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const AdminCourse = mongoose.model('AdminCourse', courseSchema);
 
 // Admin authentication
 router.post('/auth/login', adminLogin);
@@ -202,11 +217,79 @@ router.get('/opportunities', verifyAdmin, async (req, res) => {
   try {
     const opportunities = await Opportunity.find()
       .sort({ createdAt: -1 })
-      .limit(50)
       .lean();
     res.json({ opportunities });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch opportunities', error: error.message });
+  }
+});
+
+router.post('/opportunities', verifyAdmin, async (req, res) => {
+  try {
+    const { type, role, company, location, salary, description } = req.body;
+    const opportunity = new Opportunity({ type, role, company, location, salary, description });
+    await opportunity.save();
+    res.json({ message: 'Opportunity added', opportunity });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add opportunity', error: error.message });
+  }
+});
+
+router.put('/opportunities/:id', verifyAdmin, async (req, res) => {
+  try {
+    const opportunity = await Opportunity.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!opportunity) return res.status(404).json({ message: 'Opportunity not found' });
+    res.json({ message: 'Opportunity updated', opportunity });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update opportunity', error: error.message });
+  }
+});
+
+router.delete('/opportunities/:id', verifyAdmin, async (req, res) => {
+  try {
+    await Opportunity.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Opportunity deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete opportunity', error: error.message });
+  }
+});
+
+// Courses
+router.get('/courses', verifyAdmin, async (req, res) => {
+  try {
+    const courses = await AdminCourse.find().sort({ createdAt: -1 }).lean();
+    res.json({ courses });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch courses', error: error.message });
+  }
+});
+
+router.post('/courses', verifyAdmin, async (req, res) => {
+  try {
+    const course = new AdminCourse(req.body);
+    await course.save();
+    res.json({ message: 'Course added', course });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add course', error: error.message });
+  }
+});
+
+router.put('/courses/:id', verifyAdmin, async (req, res) => {
+  try {
+    const course = await AdminCourse.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+    res.json({ message: 'Course updated', course });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update course', error: error.message });
+  }
+});
+
+router.delete('/courses/:id', verifyAdmin, async (req, res) => {
+  try {
+    await AdminCourse.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Course deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete course', error: error.message });
   }
 });
 
