@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   password: String,
+  isGoogleUser: { type: Boolean, default: false },
 
   subscriptionPlan: {
     type: String,
@@ -44,6 +45,12 @@ const userSchema = new mongoose.Schema({
   ],
 
   twoFactorEnabled: { type: Boolean, default: false },
+
+  notifications: {
+    email: { type: Boolean, default: true },
+    push: { type: Boolean, default: true },
+    reminders: { type: Boolean, default: true },
+  },
 
   privacy: {
     shareData: { type: Boolean, default: false },

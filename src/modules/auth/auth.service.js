@@ -31,7 +31,7 @@ export const googleAuthUser = async ({ name, email }) => {
 
   if (!user) {
     // Create new user without password (Google user)
-    user = await User.create({ name, email, password: null });
+    user = await User.create({ name, email, password: null, isGoogleUser: true });
   }
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });

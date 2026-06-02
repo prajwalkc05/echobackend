@@ -4,7 +4,7 @@ import User from "../auth/auth.model.js";
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
-    res.json({ success: true, user });
+    res.json({ success: true, ...user.toObject() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -148,12 +148,39 @@ export const updateCookies = async (req, res) => {
 
 export const deleteAccount = async (req, res) => {
   try {
-    const { password } = req.body;
     const user = await User.findById(req.user._id);
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ error: 'Incorrect password' });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Google users have no password — skip password check
+    if (!user.isGoogleUser) {
+      const { password } = req.body;
+      if (!password) return res.status(400).json({ error: 'Password is required' });
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) return res.status(400).json({ error: 'Incorrect password' });
+    }
+
     await User.findByIdAndDelete(req.user._id);
     res.json({ success: true, message: 'Account deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateNotificationPreferences = async (req, res) => {
+  try {
+    const { email, push, reminders } = req.body;
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          'notifications.email': email !== undefined ? email : undefined,
+          'notifications.push': push !== undefined ? push : undefined,
+          'notifications.reminders': reminders !== undefined ? reminders : undefined,
+        }
+      },
+      { returnDocument: 'after', select: '-password' }
+    );
+    res.json({ success: true, notifications: updated.notifications });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

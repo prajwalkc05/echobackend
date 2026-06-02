@@ -1,5 +1,5 @@
 import express from "express";
-import { getProfile, updateProfile, saveOnboarding, saveCourseOnboarding, changePassword, toggleTwoFactor, getSessions, getPrivacy, updatePrivacy, updateCookies, deleteAccount } from "./user.controller.js";
+import { getProfile, updateProfile, saveOnboarding, saveCourseOnboarding, changePassword, toggleTwoFactor, getSessions, getPrivacy, updatePrivacy, updateCookies, deleteAccount, updateNotificationPreferences } from "./user.controller.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -14,6 +14,7 @@ router.get("/sessions", authMiddleware, getSessions);
 router.get("/privacy", authMiddleware, getPrivacy);
 router.put("/privacy", authMiddleware, updatePrivacy);
 router.put("/cookies", authMiddleware, updateCookies);
-router.delete("/account", authMiddleware, deleteAccount);
+router.put("/notifications", authMiddleware, updateNotificationPreferences);
+router.post("/account/delete", authMiddleware, deleteAccount);
 
 export default router;
