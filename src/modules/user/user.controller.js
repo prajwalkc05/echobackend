@@ -3,8 +3,12 @@ import User from "../auth/auth.model.js";
 
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password");
-    res.json({ success: true, ...user.toObject() });
+    const user = await User.findById(req.user._id);
+    const userObj = user.toObject();
+    const isGoogleUser = !userObj.password;
+    delete userObj.password;
+    userObj.isGoogleUser = isGoogleUser;
+    res.json({ success: true, ...userObj });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -148,11 +152,12 @@ export const updateCookies = async (req, res) => {
 
 export const deleteAccount = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+password');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     // Google users have no password — skip password check
-    if (!user.isGoogleUser) {
+    const isGoogleUser = !user.password;
+    if (!isGoogleUser) {
       const { password } = req.body;
       if (!password) return res.status(400).json({ error: 'Password is required' });
       const match = await bcrypt.compare(password, user.password);
