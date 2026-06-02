@@ -1,108 +1,77 @@
-import { getDashboardStats, getMonthlyUserChart, getDailyActiveUsers, getAIUsagePerUser, getSettings, updateSettings } from "./admin.service.js";
-import User from "../auth/auth.model.js";
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
-export const dashboard = async (req, res) => {
-  try {
-    const stats = await getDashboardStats();
-    res.json({ success: true, stats });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+// Hardcoded admin credentials (should be in environment variables in production)
+const ADMIN_USERS = [
+  {
+    id: 'admin-1',
+    email: 'admin@echomentor.com',
+    password: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: admin123
+    name: 'Admin User',
+    role: 'super_admin'
   }
-};
+];
 
-export const getCharts = async (req, res) => {
+exports.adminLogin = async (req, res) => {
   try {
-    const [monthlyUsers, dailyActiveUsers, aiUsage] = await Promise.all([
-      getMonthlyUserChart(),
-      getDailyActiveUsers(),
-      getAIUsagePerUser(),
-    ]);
-    res.json({ success: true, charts: { monthlyUsers, dailyActiveUsers, aiUsage } });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    const { email, password } = req.body;
 
-export const getUsers = async (req, res) => {
-  try {
-    const { page = 1, limit = 20, plan, search } = req.query;
-    const query = {};
-
-    if (plan) query.subscriptionPlan = plan.toUpperCase();
-    if (search) query.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-    ];
-
-    const users = await User.find(query)
-      .select("-password")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-
-    const total = await User.countDocuments(query);
-    res.json({ success: true, total, page: Number(page), users });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export const getUserById = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select("-password");
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export const updatePlan = async (req, res) => {
-  try {
-    const { userId, plan } = req.body;
-    const validPlans = ["FREE", "PRO", "PREMIUM"];
-
-    if (!validPlans.includes(plan?.toUpperCase())) {
-      return res.status(400).json({ error: "Invalid plan. Use FREE, PRO or PREMIUM" });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { subscriptionPlan: plan.toUpperCase() },
-      { returnDocument: "after" }
-    ).select("-password");
+    // Find admin user
+    const admin = ADMIN_USERS.find(u => u.email === email);
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid admin credentials' });
+    }
 
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ success: true, message: `Plan updated to ${plan.toUpperCase()}`, user });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Verify password
+    const isValid = await bcrypt.compare(password, admin.password);
+    if (!isValid) {
+      return res.status(401).json({ message: 'Invalid admin credentials' });
+    }
+
+    // Generate admin token
+    const token = jwt.sign(
+      { id: admin.id, email: admin.email, role: admin.role, isAdmin: true },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '8h' }
+    );
+
+    res.json({
+      message: 'Admin login successful',
+      token,
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ message: 'Server error during admin login' });
   }
 };
 
-export const deleteUser = async (req, res) => {
+exports.verifyAdmin = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ success: true, message: "User deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    const token = req.headers.authorization?.split(' ')[1];
 
-export const getAdminSettings = async (req, res) => {
-  try {
-    const settings = await getSettings();
-    res.json({ success: true, settings });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    if (!token) {
+      return res.status(401).json({ message: 'No admin token provided' });
+    }
 
-export const updateAdminSettings = async (req, res) => {
-  try {
-    const settings = await updateSettings(req.body);
-    res.json({ success: true, message: "Settings updated", settings });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ message: 'Access denied - Admin only' });
+    }
+
+    req.admin = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid admin token' });
   }
 };
