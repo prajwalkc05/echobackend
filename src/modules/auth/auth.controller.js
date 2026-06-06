@@ -2,8 +2,8 @@ import { registerUser, loginUser, googleAuthUser } from "./auth.service.js";
 
 export const signup = async (req, res) => {
   try {
-    const user = await registerUser(req.body);
-    res.status(201).json({ message: "User registered successfully", user });
+    const data = await registerUser(req.body);
+    res.status(201).json({ message: "User registered successfully", ...data });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
