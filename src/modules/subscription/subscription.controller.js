@@ -2,19 +2,21 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import * as subscriptionService from "./subscription.service.js";
 import { Payment } from "./subscription.model.js";
-import { errorHandler, responseFormatter } from "../../utils/responseFormatter.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY,
   key_secret: process.env.RAZORPAY_SECRET,
 });
 
+const ok = (res, data, message = "Success") => res.json({ success: true, message, data });
+const fail = (res, error, status = 500) => res.status(status).json({ success: false, error: error.message || error });
+
 export const getAllPlans = async (req, res) => {
   try {
     const plans = await subscriptionService.getAllPlans();
-    res.json(responseFormatter.success(plans, "Plans fetched successfully"));
+    ok(res, plans, "Plans fetched successfully");
   } catch (error) {
-    errorHandler(res, error);
+    fail(res, error);
   }
 };
 
@@ -24,7 +26,7 @@ export const createOrder = async (req, res) => {
     const userId = req.user.id;
 
     const plan = await subscriptionService.getPlanById(planId);
-    if (!plan) return res.status(404).json(responseFormatter.error("Plan not found"));
+    if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
 
     const order = await razorpay.orders.create({
       amount: plan.price * 100,
@@ -40,14 +42,9 @@ export const createOrder = async (req, res) => {
       status: "pending",
     });
 
-    res.json(
-      responseFormatter.success(
-        { order, payment },
-        "Order created successfully"
-      )
-    );
+    ok(res, { order, payment }, "Order created successfully");
   } catch (error) {
-    errorHandler(res, error);
+    fail(res, error);
   }
 };
 
@@ -63,16 +60,14 @@ export const verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== razorpaySignature) {
-      return res
-        .status(400)
-        .json(responseFormatter.error("Invalid payment signature"));
+      return res.status(400).json({ success: false, error: "Invalid payment signature" });
     }
 
     const payment = await Payment.findOne({ razorpayOrderId });
-    if (!payment) return res.status(404).json(responseFormatter.error("Payment record not found"));
+    if (!payment) return res.status(404).json({ success: false, error: "Payment record not found" });
 
     const plan = await subscriptionService.getPlanById(payment.planId);
-    
+
     let subscriptionEndDate = new Date();
     if (plan.billingCycle === "monthly") {
       subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
@@ -85,9 +80,9 @@ export const verifyPayment = async (req, res) => {
       endDate: subscriptionEndDate,
     });
 
-    res.json(responseFormatter.success(null, "Payment verified successfully"));
+    ok(res, null, "Payment verified successfully");
   } catch (error) {
-    errorHandler(res, error);
+    fail(res, error);
   }
 };
 
@@ -95,17 +90,17 @@ export const getPaymentHistory = async (req, res) => {
   try {
     const userId = req.user.id;
     const history = await subscriptionService.getUserPaymentHistory(userId);
-    res.json(responseFormatter.success(history, "Payment history fetched"));
+    ok(res, history, "Payment history fetched");
   } catch (error) {
-    errorHandler(res, error);
+    fail(res, error);
   }
 };
 
 export const getAnalytics = async (req, res) => {
   try {
     const analytics = await subscriptionService.getAnalytics();
-    res.json(responseFormatter.success(analytics, "Analytics fetched"));
+    ok(res, analytics, "Analytics fetched");
   } catch (error) {
-    errorHandler(res, error);
+    fail(res, error);
   }
 };
