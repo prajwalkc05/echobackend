@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 const subscriptionSchema = new mongoose.Schema({
   name: {
     type: String,
-    enum: ["Free", "Pro", "Premium"],
     required: true,
     unique: true,
   },
