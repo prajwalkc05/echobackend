@@ -11,7 +11,13 @@ const userSchema = new mongoose.Schema({
 
   subscriptionPlan: {
     type: String,
-    default: "FREE",
+    default: "Free",
+  },
+
+  subscriptionData: {
+    startDate: Date,
+    endDate: Date,
+    paymentId: String,
   },
 
   fcmToken: { type: String, default: null },

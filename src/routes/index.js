@@ -12,6 +12,7 @@ import notificationRoutes from "../modules/notifications/notifications.routes.js
 import codeAssistantRoutes from "../modules/codeAssistant/codeAssistant.routes.js";
 import startupRoutes from "../modules/startup/startup.routes.js";
 import coursesRoutes from "../modules/courses/courses.routes.js";
+import subscriptionRoutes from "../modules/subscription/subscription.routes.js";
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.use("/notifications", notificationRoutes);
 router.use("/code", codeAssistantRoutes);
 router.use("/startup", startupRoutes);
 router.use("/courses", coursesRoutes);
+router.use("/subscription", subscriptionRoutes);
 
 export default router;

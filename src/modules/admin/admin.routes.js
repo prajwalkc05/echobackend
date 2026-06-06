@@ -8,6 +8,8 @@ import PPT from '../ppt/ppt.model.js';
 import Mood from '../mood/mood.model.js';
 import StudyPlanner from '../studyPlanner/studyPlanner.model.js';
 import Opportunity from '../opportunities/opportunities.model.js';
+import { Subscription, Payment } from '../subscription/subscription.model.js';
+import * as subscriptionService from '../subscription/subscription.service.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();
@@ -424,6 +426,44 @@ router.delete('/courses/:id', verifyAdmin, async (req, res) => {
     res.json({ message: 'Course deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete course', error: error.message });
+  }
+});
+
+// Subscriptions
+router.get('/subscriptions', verifyAdmin, async (req, res) => {
+  try {
+    const subscriptions = await Subscription.find().sort({ price: 1 });
+    res.json({ subscriptions });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch subscriptions', error: error.message });
+  }
+});
+
+router.post('/subscriptions', verifyAdmin, async (req, res) => {
+  try {
+    const plan = await subscriptionService.createPlan(req.body);
+    res.json({ message: 'Plan created', plan });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create plan', error: error.message });
+  }
+});
+
+router.put('/subscriptions/:id', verifyAdmin, async (req, res) => {
+  try {
+    const plan = await subscriptionService.updatePlan(req.params.id, req.body);
+    if (!plan) return res.status(404).json({ message: 'Plan not found' });
+    res.json({ message: 'Plan updated', plan });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update plan', error: error.message });
+  }
+});
+
+router.delete('/subscriptions/:id', verifyAdmin, async (req, res) => {
+  try {
+    const plan = await subscriptionService.deletePlan(req.params.id);
+    res.json({ message: 'Plan deactivated', plan });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete plan', error: error.message });
   }
 });
 
