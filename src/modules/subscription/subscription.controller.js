@@ -66,6 +66,10 @@ export const createOrder = async (req, res) => {
     const plan = await subscriptionService.getPlanById(planId);
     if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
 
+    if (!process.env.RAZORPAY_KEY || !process.env.RAZORPAY_SECRET) {
+      return res.status(503).json({ success: false, error: "Payment gateway not configured. Please add RAZORPAY_KEY and RAZORPAY_SECRET in Render environment variables." });
+    }
+
     const order = await getRazorpay().orders.create({
       amount: plan.price * 100,
       currency: "INR",
