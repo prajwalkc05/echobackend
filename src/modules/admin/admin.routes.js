@@ -281,6 +281,49 @@ router.get('/analytics', verifyAdmin, async (req, res) => {
   }
 });
 
+// Resume Analytics
+router.get('/resume-analytics', verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [totalResumes, todayResumes, recentResumes] = await Promise.all([
+      Resume.countDocuments(),
+      Resume.countDocuments({ createdAt: { $gte: today } }),
+      Resume.find()
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .populate('userId', 'name email')
+        .lean(),
+    ]);
+
+    const templateNames = { 1: 'Classic Dark', 2: 'Warm Beige', 3: 'Minimal Clean', 4: 'Modern Teal' };
+
+    const templateCounts = await Resume.aggregate([
+      { $group: { _id: '$content.template', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 1 },
+    ]);
+
+    const recentActivity = recentResumes.map(r => ({
+      user: r.userId?.name || r.userId?.email || 'User',
+      action: r.aiGenerated ? 'used AI resume' : 'created resume',
+      template: templateNames[r.content?.template] || r.title || 'Unknown',
+      time: getTimeAgo(r.createdAt),
+    }));
+
+    res.json({
+      totalResumes,
+      todayResumes,
+      mostUsedTemplate: templateNames[templateCounts[0]?._id] || 'Modern Teal',
+      downloads: totalResumes,
+      recentActivity,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch resume analytics', error: error.message });
+  }
+});
+
 // AI Usage stats
 router.get('/ai-usage', verifyAdmin, async (req, res) => {
   try {
