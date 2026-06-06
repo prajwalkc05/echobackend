@@ -23,7 +23,7 @@ export const getAllPlans = async (req, res) => {
 export const createOrder = async (req, res) => {
   try {
     const { planId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const plan = await subscriptionService.getPlanById(planId);
     if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
@@ -51,7 +51,6 @@ export const createOrder = async (req, res) => {
 export const verifyPayment = async (req, res) => {
   try {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
-    const userId = req.user.id;
 
     const body = razorpayOrderId + "|" + razorpayPaymentId;
     const expectedSignature = crypto
@@ -88,7 +87,7 @@ export const verifyPayment = async (req, res) => {
 
 export const getPaymentHistory = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const history = await subscriptionService.getUserPaymentHistory(userId);
     ok(res, history, "Payment history fetched");
   } catch (error) {

@@ -1,7 +1,7 @@
 import express from "express";
 import * as subscriptionController from "./subscription.controller.js";
-import { authMiddleware } from "../../middleware/authMiddleware.js";
-import { adminMiddleware } from "../../middleware/admin.middleware.js";
+import authMiddleware from "../../middleware/authMiddleware.js";
+import { adminAuth } from "../../middleware/admin.middleware.js";
 
 const router = express.Router();
 
@@ -14,6 +14,6 @@ router.post("/verify-payment", authMiddleware, subscriptionController.verifyPaym
 router.get("/payment-history", authMiddleware, subscriptionController.getPaymentHistory);
 
 // Admin - Analytics
-router.get("/analytics", authMiddleware, adminMiddleware, subscriptionController.getAnalytics);
+router.get("/analytics", authMiddleware, adminAuth, subscriptionController.getAnalytics);
 
 export default router;
