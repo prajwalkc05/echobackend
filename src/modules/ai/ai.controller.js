@@ -23,7 +23,7 @@ export const extractFile = async (req, res) => {
 
 export const chatWithAI = async (req, res) => {
   try {
-    const { message, messages: messagesRaw, fileContext } = req.body || {};
+    const { message, messages: messagesRaw, fileContext, sessionId, sessionTitle } = req.body || {};
 
     if (!message && !fileContext) {
       return res.status(400).json({ error: 'Message is required' });
@@ -59,9 +59,10 @@ export const chatWithAI = async (req, res) => {
     const aiResponse = await generateAIResponse(message, chatMessages, fileContext || null);
     const formattedReply = formatAIResponse(aiResponse);
 
-    await Chat.create({ userId: req.user._id, message, reply: formattedReply });
+    const sid = sessionId || new Date().getTime().toString();
+    await Chat.create({ userId: req.user._id, sessionId: sid, sessionTitle: sessionTitle || "New Chat", message, reply: formattedReply });
 
-    res.json({ success: true, reply: formattedReply, remainingChats: remaining - 1 });
+    res.json({ success: true, reply: formattedReply, sessionId: sid, remainingChats: remaining - 1 });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -70,10 +71,44 @@ export const chatWithAI = async (req, res) => {
 
 export const getChatHistory = async (req, res) => {
   try {
-    const chats = await Chat.find({ userId: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(50);
-    res.json({ success: true, chats });
+    const { sessionId } = req.query;
+
+    // If sessionId provided, return messages for that session
+    if (sessionId) {
+      const chats = await Chat.find({ userId: req.user._id, sessionId }).sort({ createdAt: 1 });
+      return res.json({ success: true, chats });
+    }
+
+    // Otherwise return list of sessions (one entry per session)
+    const sessions = await Chat.aggregate([
+      { $match: { userId: req.user._id } },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$sessionId", sessionTitle: { $first: "$sessionTitle" }, lastMessage: { $first: "$message" }, updatedAt: { $first: "$createdAt" } } },
+      { $sort: { updatedAt: -1 } },
+      { $limit: 50 }
+    ]);
+    res.json({ success: true, sessions });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateSessionTitle = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { title } = req.body;
+    await Chat.updateMany({ userId: req.user._id, sessionId }, { sessionTitle: title });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const result = await Chat.deleteMany({ userId: req.user._id, sessionId });
+    res.json({ success: true, message: `${result.deletedCount} messages deleted` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
