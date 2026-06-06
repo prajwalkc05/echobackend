@@ -1,15 +1,12 @@
-import Razorpay from "razorpay";
 import crypto from "crypto";
 import * as subscriptionService from "./subscription.service.js";
 import { Payment, Subscription } from "./subscription.model.js";
 
-const getRazorpay = () => new Razorpay({
-  key_id: process.env.RAZORPAY_KEY || '',
-  key_secret: process.env.RAZORPAY_SECRET || '',
-});
+const ok = (res, data, message = "Success") =>
+  res.json({ success: true, message, data });
 
-const ok = (res, data, message = "Success") => res.json({ success: true, message, data });
-const fail = (res, error, status = 500) => res.status(status).json({ success: false, error: error.message || error });
+const fail = (res, error, status = 500) =>
+  res.status(status).json({ success: false, error: error.message || error });
 
 const DEFAULT_PLANS = [
   {
@@ -52,7 +49,7 @@ export const seedPlans = async (req, res) => {
 export const getAllPlans = async (req, res) => {
   try {
     const plans = await subscriptionService.getAllPlans();
-    res.json({ success: true, data: plans });
+    ok(res, plans, "Plans fetched successfully");
   } catch (error) {
     fail(res, error);
   }
@@ -67,10 +64,16 @@ export const createOrder = async (req, res) => {
     if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
 
     if (!process.env.RAZORPAY_KEY || !process.env.RAZORPAY_SECRET) {
-      return res.status(503).json({ success: false, error: "Payment gateway not configured. Please add RAZORPAY_KEY and RAZORPAY_SECRET in Render environment variables." });
+      return res.status(503).json({ success: false, error: "Payment gateway not configured. Add RAZORPAY_KEY and RAZORPAY_SECRET in Render environment variables." });
     }
 
-    const order = await getRazorpay().orders.create({
+    const { default: Razorpay } = await import("razorpay");
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY,
+      key_secret: process.env.RAZORPAY_SECRET,
+    });
+
+    const order = await razorpay.orders.create({
       amount: plan.price * 100,
       currency: "INR",
       receipt: `${userId}-${Date.now()}`,
@@ -94,10 +97,9 @@ export const verifyPayment = async (req, res) => {
   try {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
 
-    const body = razorpayOrderId + "|" + razorpayPaymentId;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_SECRET)
-      .update(body)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest("hex");
 
     if (expectedSignature !== razorpaySignature) {
@@ -109,10 +111,10 @@ export const verifyPayment = async (req, res) => {
 
     const plan = await subscriptionService.getPlanById(payment.planId);
 
-    let subscriptionEndDate = new Date();
+    const subscriptionEndDate = new Date();
     if (plan.billingCycle === "monthly") {
       subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
-    } else if (plan.billingCycle === "yearly") {
+    } else {
       subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 1);
     }
 
@@ -129,8 +131,7 @@ export const verifyPayment = async (req, res) => {
 
 export const getPaymentHistory = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const history = await subscriptionService.getUserPaymentHistory(userId);
+    const history = await subscriptionService.getUserPaymentHistory(req.user._id);
     ok(res, history, "Payment history fetched");
   } catch (error) {
     fail(res, error);
