@@ -1,7 +1,7 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import * as subscriptionService from "./subscription.service.js";
-import { Payment } from "./subscription.model.js";
+import { Payment, Subscription } from "./subscription.model.js";
 
 const getRazorpay = () => new Razorpay({
   key_id: process.env.RAZORPAY_KEY || '',
@@ -10,6 +10,44 @@ const getRazorpay = () => new Razorpay({
 
 const ok = (res, data, message = "Success") => res.json({ success: true, message, data });
 const fail = (res, error, status = 500) => res.status(status).json({ success: false, error: error.message || error });
+
+const DEFAULT_PLANS = [
+  {
+    name: "Free",
+    price: 0,
+    billingCycle: "monthly",
+    features: ["20 Chats/Day", "3 Resumes", "3 PPTs", "Limited Opportunities", "No Startup Guide"],
+    active: true,
+  },
+  {
+    name: "Pro",
+    price: 199,
+    billingCycle: "monthly",
+    features: ["Unlimited Chat", "Unlimited Resumes", "Unlimited PPTs", "Unlimited Opportunities", "Startup Guide Access", "Priority Support"],
+    active: true,
+  },
+  {
+    name: "Premium",
+    price: 1500,
+    billingCycle: "yearly",
+    features: ["Everything in Pro", "Priority AI Response", "Advanced Analytics", "Dedicated Support", "Early Access to Features"],
+    active: true,
+  },
+];
+
+export const seedPlans = async (req, res) => {
+  try {
+    const existing = await Subscription.countDocuments();
+    if (existing > 0) {
+      const plans = await Subscription.find().sort({ price: 1 });
+      return ok(res, plans, "Plans already exist");
+    }
+    const plans = await Subscription.insertMany(DEFAULT_PLANS);
+    ok(res, plans, "Plans seeded successfully");
+  } catch (error) {
+    fail(res, error);
+  }
+};
 
 export const getAllPlans = async (req, res) => {
   try {

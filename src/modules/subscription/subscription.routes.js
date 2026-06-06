@@ -8,6 +8,9 @@ const router = express.Router();
 // Public - Get all active plans
 router.get("/plans", subscriptionController.getAllPlans);
 
+// Seed default plans (run once)
+router.post("/seed", subscriptionController.seedPlans);
+
 // Protected - Payment
 router.post("/create-order", authMiddleware, subscriptionController.createOrder);
 router.post("/verify-payment", authMiddleware, subscriptionController.verifyPayment);
