@@ -281,6 +281,47 @@ router.get('/analytics', verifyAdmin, async (req, res) => {
   }
 });
 
+// PPT Analytics
+router.get('/ppt-analytics', verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [totalPPTs, todayPPTs, recentPPTs] = await Promise.all([
+      PPT.countDocuments(),
+      PPT.countDocuments({ createdAt: { $gte: today } }),
+      PPT.find()
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .populate('userId', 'name email')
+        .lean(),
+    ]);
+
+    const avgSlidesResult = await PPT.aggregate([
+      { $match: { slides: { $gt: 0 } } },
+      { $group: { _id: null, avg: { $avg: '$slides' } } },
+    ]);
+
+    const recentActivity = recentPPTs.map(p => ({
+      user: p.userId?.name || p.userId?.email || 'User',
+      title: p.topic || 'Untitled',
+      slides: p.slides || 0,
+      theme: p.theme || '',
+      time: getTimeAgo(p.createdAt),
+    }));
+
+    res.json({
+      totalPPTs,
+      todayPPTs,
+      avgSlides: Math.round(avgSlidesResult[0]?.avg || 0),
+      downloads: totalPPTs,
+      recentActivity,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch PPT analytics', error: error.message });
+  }
+});
+
 // Resume Analytics
 router.get('/resume-analytics', verifyAdmin, async (req, res) => {
   try {
