@@ -58,22 +58,6 @@ export const getAllPlans = async (req, res) => {
   }
 };
 
-export const seedPlans = async (req, res) => {
-  try {
-    const { Subscription } = await import('./subscription.model.js');
-    const existing = await Subscription.countDocuments();
-    if (existing > 0) return res.json({ success: true, message: 'Plans already seeded' });
-    await Subscription.insertMany([
-      { name: 'Free', price: 0, billingCycle: 'monthly', features: ['20 AI chats/day', 'Basic resume builder', 'Study planner', 'Mood tracker'] },
-      { name: 'Pro', price: 299, billingCycle: 'monthly', features: ['Unlimited AI chats', 'Advanced resume builder', 'Priority support', 'All Free features', 'Code assistant', 'PPT generator'] },
-      { name: 'Premium', price: 999, billingCycle: 'yearly', features: ['Everything in Pro', 'AI mentor sessions', 'Career coaching', 'Exclusive resources', 'Early access to features'] },
-    ]);
-    res.json({ success: true, message: 'Plans seeded successfully' });
-  } catch (error) {
-    fail(res, error);
-  }
-};
-
 export const createOrder = async (req, res) => {
   try {
     const { planId } = req.body;
