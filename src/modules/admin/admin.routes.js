@@ -23,6 +23,11 @@ const courseSchema = new mongoose.Schema({
   level: String,
   price: String,
   description: String,
+  url: String,
+  thumbnail: String,
+  instructor: String,
+  skills: [String],
+  tags: [String],
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -471,6 +476,16 @@ router.delete('/opportunities/:id', verifyAdmin, async (req, res) => {
     res.json({ message: 'Opportunity deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete opportunity', error: error.message });
+  }
+});
+
+// Public: Get admin-curated courses (for user course module)
+router.get('/public/courses', async (req, res) => {
+  try {
+    const courses = await AdminCourse.find().sort({ createdAt: -1 }).lean();
+    res.json({ courses });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch courses', error: error.message });
   }
 });
 
