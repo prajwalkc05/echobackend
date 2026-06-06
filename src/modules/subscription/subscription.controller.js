@@ -3,9 +3,9 @@ import crypto from "crypto";
 import * as subscriptionService from "./subscription.service.js";
 import { Payment } from "./subscription.model.js";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY,
-  key_secret: process.env.RAZORPAY_SECRET,
+const getRazorpay = () => new Razorpay({
+  key_id: process.env.RAZORPAY_KEY || '',
+  key_secret: process.env.RAZORPAY_SECRET || '',
 });
 
 const ok = (res, data, message = "Success") => res.json({ success: true, message, data });
@@ -28,7 +28,7 @@ export const createOrder = async (req, res) => {
     const plan = await subscriptionService.getPlanById(planId);
     if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
 
-    const order = await razorpay.orders.create({
+    const order = await getRazorpay().orders.create({
       amount: plan.price * 100,
       currency: "INR",
       receipt: `${userId}-${Date.now()}`,
