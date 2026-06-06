@@ -33,6 +33,7 @@
     "openai": "^6.35.0",
     "pdf-parse": "^2.4.5",
     "pptxgenjs": "^4.0.1",
+    "razorpay": "^2.9.6",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
