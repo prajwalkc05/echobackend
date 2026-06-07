@@ -31,6 +31,6 @@ router.use("/code", codeAssistantRoutes);
 router.use("/startup", startupRoutes);
 router.use("/courses", coursesRoutes);
 router.use("/subscription", subscriptionRoutes);
-router.use("/", couponRoutes);
+router.use("/coupons", couponRoutes);
 
 export default router;

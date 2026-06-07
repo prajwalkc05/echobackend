@@ -39,6 +39,7 @@ app.get("/docs", (req, res) => {
       opportunities: ["/api/opportunities/"],
       code: ["/api/code/assist"],
       ppt: ["/api/ppt/generate"],
+      coupons: ["/api/coupons/", "/api/coupons/active", "/api/coupons/validate", "/api/coupons/admin"]
     }
   });
 });
