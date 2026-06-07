@@ -42,7 +42,6 @@ const couponSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-couponSchema.index({ code: 1 });
 couponSchema.index({ active: 1 });
 
 export default mongoose.model('Coupon', couponSchema);
