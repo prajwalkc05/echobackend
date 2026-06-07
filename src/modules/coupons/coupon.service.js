@@ -7,7 +7,9 @@ class CouponService {
       if (mongoose.connection.readyState !== 1) {
         throw new Error('Database not connected');
       }
-      return await Coupon.find().sort({ createdAt: -1 });
+      return await Coupon.find()
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: -1 });
     } catch (error) {
       console.error('Get all coupons service error:', error);
       throw error;
@@ -19,7 +21,7 @@ class CouponService {
       if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new Error('Invalid coupon ID');
       }
-      return await Coupon.findById(id);
+      return await Coupon.findById(id).populate('createdBy', 'name email');
     } catch (error) {
       console.error('Get coupon by ID service error:', error);
       throw error;
@@ -28,7 +30,8 @@ class CouponService {
 
   async getCouponByCode(code) {
     try {
-      return await Coupon.findOne({ code: code.toUpperCase() });
+      return await Coupon.findOne({ code: code.toUpperCase() })
+        .populate('createdBy', 'name email');
     } catch (error) {
       console.error('Get coupon by code service error:', error);
       throw error;
@@ -117,7 +120,9 @@ class CouponService {
           { expiry: null },
           { expiry: { $gte: currentDate } }
         ]
-      }).sort({ createdAt: -1 });
+      })
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 });
     } catch (error) {
       console.error('Get active coupons service error:', error);
       throw error;

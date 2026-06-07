@@ -14,9 +14,28 @@ class CouponController {
         coupons = await couponService.getActiveCoupons();
       }
       
+      // Clean the response to avoid HTML encoding issues
+      const cleanCoupons = coupons.map(coupon => ({
+        _id: coupon._id,
+        code: coupon.code,
+        discount: coupon.discount,
+        expiry: coupon.expiry,
+        maxUses: coupon.maxUses,
+        currentUses: coupon.currentUses,
+        description: coupon.description,
+        active: coupon.active,
+        createdBy: coupon.createdBy ? {
+          _id: coupon.createdBy._id,
+          name: coupon.createdBy.name,
+          email: coupon.createdBy.email
+        } : null,
+        createdAt: coupon.createdAt,
+        updatedAt: coupon.updatedAt
+      }));
+      
       res.json({
         success: true,
-        coupons
+        coupons: cleanCoupons
       });
     } catch (error) {
       console.error('Get all coupons error:', error);
@@ -151,9 +170,29 @@ class CouponController {
   async getActiveCoupons(req, res) {
     try {
       const coupons = await couponService.getActiveCoupons();
+      
+      // Clean the response to avoid HTML encoding issues
+      const cleanCoupons = coupons.map(coupon => ({
+        _id: coupon._id,
+        code: coupon.code,
+        discount: coupon.discount,
+        expiry: coupon.expiry,
+        maxUses: coupon.maxUses,
+        currentUses: coupon.currentUses,
+        description: coupon.description,
+        active: coupon.active,
+        createdBy: coupon.createdBy ? {
+          _id: coupon.createdBy._id,
+          name: coupon.createdBy.name,
+          email: coupon.createdBy.email
+        } : null,
+        createdAt: coupon.createdAt,
+        updatedAt: coupon.updatedAt
+      }));
+      
       res.json({
         success: true,
-        coupons
+        coupons: cleanCoupons
       });
     } catch (error) {
       console.error('Get active coupons error:', error);
