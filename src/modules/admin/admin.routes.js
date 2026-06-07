@@ -251,10 +251,28 @@ router.get('/analytics', verifyAdmin, async (req, res) => {
       const dayResumes = await Resume.countDocuments({ createdAt: { $gte: dayStart, $lt: dayEnd } });
       const dayRequests = dayChats + dayCode + dayPPTs + dayResumes;
       
+      // Calculate actual revenue from payments for this day
+      const dayPayments = await Payment.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dayStart, $lt: dayEnd },
+            status: 'success'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$amount' }
+          }
+        }
+      ]);
+      
+      const dayRevenue = dayPayments.length > 0 ? dayPayments[0].total : 0;
+      
       dailyData.push({
         date: days[6 - i],
         users: dayUsers,
-        revenue: Math.floor(Math.random() * 5000 + 1000),
+        revenue: dayRevenue,
         requests: dayRequests
       });
     }
@@ -432,7 +450,7 @@ router.get('/ai-usage', verifyAdmin, async (req, res) => {
     const recentLogs = recentChats.map(chat => ({
       user: chat.userId?.name || 'Unknown User',
       action: 'AI Chat',
-      tokens: Math.floor(Math.random() * 2000 + 500),
+      tokens: 150, // Estimated average tokens per request
       timestamp: getTimeAgo(chat.createdAt)
     }));
 
