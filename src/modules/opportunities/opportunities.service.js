@@ -12,12 +12,25 @@ const staticFallback = [
   { title: "Smart India Hackathon", company: "Govt of India", location: "Pan India", type: "hackathon", url: "https://sih.gov.in", skills: ["javascript", "python", "react"], source: "India-Static" },
 ];
 
+const normalizeType = (type = '') => {
+  const t = String(type || '').toLowerCase().trim();
+  if (['job', 'jobs', 'full time', 'fulltime', 'full-time', 'permanent'].includes(t)) return 'job';
+  if (['internship', 'internships', 'intern'].includes(t)) return 'internship';
+  if (['hackathon', 'hackathons', 'hack'].includes(t)) return 'hackathon';
+  if (['scholarship', 'scholarships'].includes(t)) return 'scholarship';
+  if (['fellowship', 'fellowships'].includes(t)) return 'fellowship';
+  return t;
+};
+
 export const fetchOpportunities = async (filters = {}) => {
   let jobs = await Opportunity.find().limit(50).lean();
 
   if (!jobs.length) jobs = staticFallback;
 
-  if (filters.type) jobs = jobs.filter(j => j.type === filters.type);
+  if (filters.type) {
+    const requestedType = normalizeType(filters.type);
+    jobs = jobs.filter(j => normalizeType(j.type) === requestedType);
+  }
   if (filters.location) jobs = jobs.filter(j => j.location?.toLowerCase().includes(filters.location.toLowerCase()));
   if (filters.skills?.length) {
     const lower = filters.skills.map(s => s.toLowerCase());

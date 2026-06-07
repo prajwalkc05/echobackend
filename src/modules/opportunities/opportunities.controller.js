@@ -1,5 +1,6 @@
 import { fetchOpportunities } from "./opportunities.service.js";
 import User from "../auth/auth.model.js";
+import Opportunity from "./opportunities.model.js";
 
 export const getOpportunities = async (req, res) => {
   try {
@@ -71,6 +72,35 @@ export const removeBookmark = async (req, res) => {
       $pull: { bookmarks: { _id: req.params.id } },
     });
     res.json({ success: true, message: "Bookmark removed" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Admin function to create opportunities
+export const createOpportunity = async (req, res) => {
+  try {
+    const { title, company, location, type, url, salary, deadline, description, skills } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: "Title is required" });
+    }
+
+    const opportunity = new Opportunity({
+      title,
+      company,
+      location,
+      type,
+      url,
+      salary,
+      deadline,
+      description,
+      skills: Array.isArray(skills) ? skills : [],
+      source: "Admin-Created"
+    });
+
+    await opportunity.save();
+    res.status(201).json({ success: true, message: "Opportunity created successfully", data: opportunity });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

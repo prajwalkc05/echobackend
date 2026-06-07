@@ -13,6 +13,16 @@ import * as subscriptionService from '../subscription/subscription.service.js';
 import StartupIdea from '../startup/startup.model.js';
 import mongoose from 'mongoose';
 
+const normalizeOpportunityType = (type) => {
+  const t = String(type || '').toLowerCase().trim();
+  if (['job', 'jobs', 'full time', 'fulltime', 'full-time', 'permanent'].includes(t)) return 'job';
+  if (['internship', 'internships', 'intern'].includes(t)) return 'internship';
+  if (['hackathon', 'hackathons', 'hack'].includes(t)) return 'hackathon';
+  if (['scholarship', 'scholarships'].includes(t)) return 'scholarship';
+  if (['fellowship', 'fellowships'].includes(t)) return 'fellowship';
+  return t || 'job';
+};
+
 const router = express.Router();
 
 // Admin Course Model
@@ -474,8 +484,31 @@ router.get('/opportunities', verifyAdmin, async (req, res) => {
 
 router.post('/opportunities', verifyAdmin, async (req, res) => {
   try {
-    const { type, role, company, location, salary, description } = req.body;
-    const opportunity = new Opportunity({ type, role, company, location, salary, description });
+    const {
+      type,
+      role,
+      title,
+      company,
+      location,
+      salary,
+      description,
+      url,
+      skills,
+      deadline,
+    } = req.body;
+
+    const opportunity = new Opportunity({
+      title: title || role,
+      type: normalizeOpportunityType(type),
+      company,
+      location,
+      salary,
+      description,
+      url,
+      deadline,
+      skills: Array.isArray(skills) ? skills : [],
+    });
+
     await opportunity.save();
     res.json({ message: 'Opportunity added', opportunity });
   } catch (error) {
@@ -485,7 +518,19 @@ router.post('/opportunities', verifyAdmin, async (req, res) => {
 
 router.put('/opportunities/:id', verifyAdmin, async (req, res) => {
   try {
-    const opportunity = await Opportunity.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = {
+      title: req.body.title || req.body.role,
+      type: normalizeOpportunityType(req.body.type),
+      company: req.body.company,
+      location: req.body.location,
+      salary: req.body.salary,
+      description: req.body.description,
+      url: req.body.url,
+      deadline: req.body.deadline,
+      skills: Array.isArray(req.body.skills) ? req.body.skills : [],
+    };
+
+    const opportunity = await Opportunity.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!opportunity) return res.status(404).json({ message: 'Opportunity not found' });
     res.json({ message: 'Opportunity updated', opportunity });
   } catch (error) {
