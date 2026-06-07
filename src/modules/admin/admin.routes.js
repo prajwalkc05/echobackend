@@ -10,6 +10,7 @@ import StudyPlanner from '../studyPlanner/studyPlanner.model.js';
 import Opportunity from '../opportunities/opportunities.model.js';
 import { Subscription, Payment } from '../subscription/subscription.model.js';
 import * as subscriptionService from '../subscription/subscription.service.js';
+import StartupIdea from '../startup/startup.model.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();
@@ -434,6 +435,28 @@ router.get('/ai-usage', verifyAdmin, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch AI usage', error: error.message });
+  }
+});
+
+// Startup Ideas
+router.get('/startup-ideas', verifyAdmin, async (req, res) => {
+  try {
+    const ideas = await StartupIdea.find()
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name email')
+      .lean();
+    res.json({ ideas });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch startup ideas', error: error.message });
+  }
+});
+
+router.delete('/startup-ideas/:id', verifyAdmin, async (req, res) => {
+  try {
+    await StartupIdea.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Idea deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete idea', error: error.message });
   }
 });
 
