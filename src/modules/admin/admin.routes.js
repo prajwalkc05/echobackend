@@ -8,8 +8,10 @@ import PPT from '../ppt/ppt.model.js';
 import Mood from '../mood/mood.model.js';
 import StudyPlanner from '../studyPlanner/studyPlanner.model.js';
 import Opportunity from '../opportunities/opportunities.model.js';
+import Notification from '../notifications/notifications.model.js';
 import { Subscription, Payment } from '../subscription/subscription.model.js';
 import * as subscriptionService from '../subscription/subscription.service.js';
+import { broadcastToAll, broadcastToSubscription } from '../../utils/notificationService.js';
 import StartupIdea from '../startup/startup.model.js';
 import mongoose from 'mongoose';
 
@@ -67,6 +69,7 @@ router.get('/dashboard', verifyAdmin, async (req, res) => {
     const aiRequests = await AIChat.countDocuments({ createdAt: { $gte: today } });
     const resumesCreated = await Resume.countDocuments({ createdAt: { $gte: today } });
     const pptsCreated = await PPT.countDocuments({ createdAt: { $gte: today } });
+    const notificationsSent = await Notification.countDocuments({ createdAt: { $gte: today } });
 
     const recentActivity = await User.find()
       .sort({ createdAt: -1 })
@@ -643,5 +646,94 @@ function getTimeAgo(date) {
   if (hours < 24) return `${hours} hr ago`;
   return `${Math.floor(hours / 24)} days ago`;
 }
+
+// Notifications Management
+router.get('/notifications', verifyAdmin, async (req, res) => {
+  try {
+    const notifications = await Notification.find()
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('userId', 'name email subscription')
+      .lean();
+
+    const totalNotifications = await Notification.countDocuments();
+    const unreadCount = await Notification.countDocuments({ read: false });
+    
+    const userStats = await User.aggregate([
+      { $group: { _id: '$subscription', count: { $sum: 1 } } }
+    ]);
+
+    res.json({ 
+      notifications, 
+      stats: { 
+        total: totalNotifications, 
+        unread: unreadCount,
+        userStats
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch notifications', error: error.message });
+  }
+});
+
+router.post('/notifications/send', verifyAdmin, async (req, res) => {
+  try {
+    const { title, message, targetAudience = 'all', type = 'admin', priority = 'medium' } = req.body;
+    
+    if (!title || !message) {
+      return res.status(400).json({ error: 'Title and message are required' });
+    }
+
+    let sentCount = 0;
+
+    if (targetAudience === 'all') {
+      sentCount = await broadcastToAll(title, message, type, priority);
+    } else if (['free', 'pro', 'premium'].includes(targetAudience)) {
+      sentCount = await broadcastToSubscription(title, message, targetAudience, type, priority);
+    } else {
+      return res.status(400).json({ error: 'Invalid target audience' });
+    }
+
+    res.json({ 
+      success: true,
+      message: `Notification sent to ${sentCount} ${targetAudience === 'all' ? 'users' : targetAudience + ' users'}`,
+      sentCount,
+      targetAudience,
+      notificationData: { title, message, type, priority }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to send notification', error: error.message });
+  }
+});
+
+router.get('/notifications/analytics', verifyAdmin, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const [totalNotifications, todayNotifications, unreadNotifications] = await Promise.all([
+      Notification.countDocuments(),
+      Notification.countDocuments({ createdAt: { $gte: today } }),
+      Notification.countDocuments({ read: false })
+    ]);
+
+    const notificationsByType = await Notification.aggregate([
+      { $group: { _id: '$type', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    res.json({
+      stats: {
+        totalNotifications,
+        todayNotifications,
+        unreadNotifications,
+        readRate: totalNotifications > 0 ? Math.round(((totalNotifications - unreadNotifications) / totalNotifications) * 100) : 0
+      },
+      notificationsByType
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch analytics', error: error.message });
+  }
+});
 
 export default router;
