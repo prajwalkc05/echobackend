@@ -1,16 +1,38 @@
 import Coupon from './coupon.model.js';
+import mongoose from 'mongoose';
 
 class CouponService {
   async getAllCoupons() {
-    return await Coupon.find().sort({ createdAt: -1 });
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        throw new Error('Database not connected');
+      }
+      return await Coupon.find().sort({ createdAt: -1 });
+    } catch (error) {
+      console.error('Get all coupons service error:', error);
+      throw error;
+    }
   }
 
   async getCouponById(id) {
-    return await Coupon.findById(id);
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new Error('Invalid coupon ID');
+      }
+      return await Coupon.findById(id);
+    } catch (error) {
+      console.error('Get coupon by ID service error:', error);
+      throw error;
+    }
   }
 
   async getCouponByCode(code) {
-    return await Coupon.findOne({ code: code.toUpperCase() });
+    try {
+      return await Coupon.findOne({ code: code.toUpperCase() });
+    } catch (error) {
+      console.error('Get coupon by code service error:', error);
+      throw error;
+    }
   }
 
   async createCoupon(data, adminId) {
@@ -84,7 +106,22 @@ class CouponService {
   }
 
   async getActiveCoupons() {
-    return await Coupon.find({ active: true }).sort({ createdAt: -1 });
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        throw new Error('Database not connected');
+      }
+      const currentDate = new Date();
+      return await Coupon.find({ 
+        active: true,
+        $or: [
+          { expiry: null },
+          { expiry: { $gte: currentDate } }
+        ]
+      }).sort({ createdAt: -1 });
+    } catch (error) {
+      console.error('Get active coupons service error:', error);
+      throw error;
+    }
   }
 }
 

@@ -3,7 +3,17 @@ import couponService from './coupon.service.js';
 class CouponController {
   async getAllCoupons(req, res) {
     try {
-      const coupons = await couponService.getAllCoupons();
+      // Check if this is an admin request
+      const isAdminRoute = req.route.path.includes('/admin/');
+      
+      let coupons;
+      if (isAdminRoute) {
+        coupons = await couponService.getAllCoupons();
+      } else {
+        // Public route - only return active, non-expired coupons
+        coupons = await couponService.getActiveCoupons();
+      }
+      
       res.json({
         success: true,
         coupons
