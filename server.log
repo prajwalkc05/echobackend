@@ -1,0 +1,12 @@
+
+> echomentor-backend@1.0.0 start
+> node server.js
+
+◇ injected env (20) from .env // tip: ⌘ suppress logs { quiet: true }
+⚠️ Firebase init failed: Failed to parse private key: Error: Invalid PEM formatted message.
+MongoDB Connected ✅
+✅ Cron jobs started
+Server running on port 8000
+🔄 Fetching from all sources...
+✅ Total unique jobs: 36 (JSearch: 10, Remotive: 15, Adzuna: 15)
+✅ Jobs refreshed: 36 total

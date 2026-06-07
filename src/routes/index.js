@@ -13,7 +13,6 @@ import codeAssistantRoutes from "../modules/codeAssistant/codeAssistant.routes.j
 import startupRoutes from "../modules/startup/startup.routes.js";
 import coursesRoutes from "../modules/courses/courses.routes.js";
 import subscriptionRoutes from "../modules/subscription/subscription.routes.js";
-import couponRoutes from "../modules/coupons/coupon.routes.js";
 
 const router = express.Router();
 
@@ -31,6 +30,5 @@ router.use("/code", codeAssistantRoutes);
 router.use("/startup", startupRoutes);
 router.use("/courses", coursesRoutes);
 router.use("/subscription", subscriptionRoutes);
-router.use("/coupons", couponRoutes);
 
 export default router;

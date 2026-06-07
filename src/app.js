@@ -38,8 +38,7 @@ app.get("/docs", (req, res) => {
       mood: ["/api/mood/track", "/api/mood/history"],
       opportunities: ["/api/opportunities/"],
       code: ["/api/code/assist"],
-      ppt: ["/api/ppt/generate"],
-      coupons: ["/api/coupons/", "/api/coupons/active", "/api/coupons/validate", "/api/coupons/admin"]
+      ppt: ["/api/ppt/generate"]
     }
   });
 });
