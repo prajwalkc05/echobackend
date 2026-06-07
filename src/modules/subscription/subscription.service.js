@@ -15,11 +15,11 @@ export const createPlan = async (planData) => {
 };
 
 export const updatePlan = async (id, updateData) => {
-  return Subscription.findByIdAndUpdate(id, updateData, { new: true });
+  return Subscription.findByIdAndUpdate(id, updateData, { returnDocument: 'after' });
 };
 
 export const deletePlan = async (id) => {
-  return Subscription.findByIdAndUpdate(id, { active: false }, { new: true });
+  return Subscription.findByIdAndUpdate(id, { active: false }, { returnDocument: 'after' });
 };
 
 export const createPaymentRecord = async (paymentData) => {
@@ -35,7 +35,7 @@ export const updatePaymentStatus = async (razorpayPaymentId, status, subscriptio
       subscriptionStartDate: subscriptionData?.startDate,
       subscriptionEndDate: subscriptionData?.endDate,
     },
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   if (payment && status === "success") {
@@ -48,7 +48,7 @@ export const updatePaymentStatus = async (razorpayPaymentId, status, subscriptio
         "subscriptionData.endDate": subscriptionData?.endDate,
         "subscriptionData.paymentId": razorpayPaymentId,
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
     return { payment, user };
   }

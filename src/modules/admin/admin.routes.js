@@ -179,7 +179,7 @@ router.put('/users/:id/subscription', verifyAdmin, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { subscription },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password');
     
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -530,7 +530,7 @@ router.put('/opportunities/:id', verifyAdmin, async (req, res) => {
       skills: Array.isArray(req.body.skills) ? req.body.skills : [],
     };
 
-    const opportunity = await Opportunity.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    const opportunity = await Opportunity.findByIdAndUpdate(req.params.id, updateData, { returnDocument: 'after' });
     if (!opportunity) return res.status(404).json({ message: 'Opportunity not found' });
     res.json({ message: 'Opportunity updated', opportunity });
   } catch (error) {
@@ -579,7 +579,7 @@ router.post('/courses', verifyAdmin, async (req, res) => {
 
 router.put('/courses/:id', verifyAdmin, async (req, res) => {
   try {
-    const course = await AdminCourse.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const course = await AdminCourse.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
     if (!course) return res.status(404).json({ message: 'Course not found' });
     res.json({ message: 'Course updated', course });
   } catch (error) {

@@ -177,7 +177,8 @@ Return ONLY valid JSON in this exact format (no markdown, no extra text):
     if (ideaId) {
       await StartupIdea.findOneAndUpdate(
         mongoose.isValidObjectId(ideaId) ? { _id: ideaId } : { id: ideaId },
-        { validation, status: "validated" }
+        { validation, status: "validated" },
+        { returnDocument: 'after' }
       );
     }
 
@@ -540,13 +541,13 @@ export const updateIdeaStatus = async (req, res) => {
       result = await StartupIdea.findOneAndUpdate(
         { _id: ideaId, userId },
         { status },
-        { new: true }
+        { returnDocument: 'after' }
       );
     } else {
       result = await StartupIdea.findOneAndUpdate(
         { id: ideaId, userId },
         { status },
-        { new: true }
+        { returnDocument: 'after' }
       );
     }
 
@@ -586,13 +587,13 @@ export const unsaveIdea = async (req, res) => {
       result = await StartupIdea.findOneAndUpdate(
         { _id: ideaId, userId },
         { status: 'generated' },
-        { new: true }
+        { returnDocument: 'after' }
       );
     } else {
       result = await StartupIdea.findOneAndUpdate(
         { id: ideaId, userId },
         { status: 'generated' },
-        { new: true }
+        { returnDocument: 'after' }
       );
     }
 

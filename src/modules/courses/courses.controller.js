@@ -171,7 +171,7 @@ export const trackCourseProgress = async (req, res) => {
     const course = await Course.findOneAndUpdate(
       { courseId, userId },
       { progress, status, lastAccessedAt: new Date() },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!course) {
