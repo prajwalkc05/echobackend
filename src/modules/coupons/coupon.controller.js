@@ -10,9 +10,13 @@ class CouponController {
       });
     } catch (error) {
       console.error('Get all coupons error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error(error.stack);
+      }
       res.status(500).json({
         success: false,
-        message: error.message || 'Failed to fetch coupons'
+        message: error.message || 'Failed to fetch coupons',
+        ...(process.env.NODE_ENV === 'development' ? { stack: error.stack } : {})
       });
     }
   }
@@ -143,9 +147,13 @@ class CouponController {
       });
     } catch (error) {
       console.error('Get active coupons error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error(error.stack);
+      }
       res.status(500).json({
         success: false,
-        message: error.message || 'Failed to fetch active coupons'
+        message: error.message || 'Failed to fetch active coupons',
+        ...(process.env.NODE_ENV === 'development' ? { stack: error.stack } : {})
       });
     }
   }
