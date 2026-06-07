@@ -558,3 +558,67 @@ export const getProgress = async (req, res) => {
     });
   }
 };
+
+// Clear all startup ideas for user
+export const clearAllIdeas = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await StartupIdea.deleteMany({ userId });
+    
+    console.log(`🗑️ Cleared ${result.deletedCount} ideas for user ${userId}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully cleared ${result.deletedCount} startup ideas`,
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('❌ Error clearing all ideas:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to clear startup data', 
+      error: error.message 
+    });
+  }
+};
+
+// Delete single startup idea
+export const deleteIdea = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ideaId = req.params.id;
+    
+    // Try to delete by MongoDB ObjectId first, then by custom id field
+    let result;
+    if (mongoose.isValidObjectId(ideaId)) {
+      result = await StartupIdea.findOneAndDelete({ _id: ideaId, userId });
+    } else {
+      result = await StartupIdea.findOneAndDelete({ id: ideaId, userId });
+    }
+    
+    if (!result) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Startup idea not found or you do not have permission to delete it' 
+      });
+    }
+    
+    console.log(`🗑️ Deleted idea: ${result.name} for user ${userId}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Startup idea deleted successfully',
+      deletedIdea: {
+        id: result._id,
+        name: result.name
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error deleting idea:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to delete startup idea', 
+      error: error.message 
+    });
+  }
+};

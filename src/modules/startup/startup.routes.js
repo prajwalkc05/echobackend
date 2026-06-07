@@ -9,6 +9,8 @@ import {
   saveIdea,
   getSavedIdeas,
   getProgress,
+  clearAllIdeas,
+  deleteIdea,
 } from "./startup.controller.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
@@ -40,5 +42,11 @@ router.get("/saved", authMiddleware, getSavedIdeas);
 
 // Get user progress
 router.get("/progress", authMiddleware, getProgress);
+
+// Clear all startup data for user
+router.delete("/clear-all", authMiddleware, clearAllIdeas);
+
+// Delete single idea
+router.delete("/idea/:id", authMiddleware, deleteIdea);
 
 export default router;
