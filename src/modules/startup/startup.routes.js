@@ -11,6 +11,8 @@ import {
   getProgress,
   clearAllIdeas,
   deleteIdea,
+  updateIdeaStatus,
+  unsaveIdea,
 } from "./startup.controller.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
@@ -36,6 +38,12 @@ router.post("/cofounder", authMiddleware, chatWithCofounder);
 
 // Save a startup idea
 router.post("/save", authMiddleware, saveIdea);
+
+// Update idea status (save/unsave)
+router.put("/status/:id", authMiddleware, updateIdeaStatus);
+
+// Unsave an idea
+router.put("/unsave/:id", authMiddleware, unsaveIdea);
 
 // Get saved ideas
 router.get("/saved", authMiddleware, getSavedIdeas);

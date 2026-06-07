@@ -471,6 +471,30 @@ export const saveIdea = async (req, res) => {
     const ideaData = req.body;
     const userId = req.user.id;
 
+    console.log('💾 Save Idea Request:', ideaData?.name);
+
+    // Check if idea already exists for this user
+    let existingIdea;
+    if (ideaData._id) {
+      existingIdea = await StartupIdea.findOne({ _id: ideaData._id, userId });
+    } else if (ideaData.id) {
+      existingIdea = await StartupIdea.findOne({ id: ideaData.id, userId });
+    }
+
+    if (existingIdea) {
+      // Update existing idea status to saved
+      existingIdea.status = 'saved';
+      await existingIdea.save();
+      
+      console.log('✅ Updated existing idea status to saved');
+      return res.status(200).json({
+        success: true,
+        message: "Idea status updated to saved",
+        id: existingIdea._id,
+      });
+    }
+
+    // Create new idea if it doesn't exist
     const startupIdea = new StartupIdea({
       userId,
       ...ideaData,
@@ -478,17 +502,118 @@ export const saveIdea = async (req, res) => {
     });
 
     await startupIdea.save();
-
+    
+    console.log('✅ Created new saved idea');
     res.status(201).json({
       success: true,
       message: "Idea saved successfully",
       id: startupIdea._id,
     });
   } catch (error) {
-    console.error("Error saving idea:", error);
+    console.error("❌ Error saving idea:", error);
     res.status(500).json({
       success: false,
       message: "Failed to save idea",
+      error: error.message,
+    });
+  }
+};
+
+// Update idea status (save/unsave)
+export const updateIdeaStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ideaId = req.params.id;
+    const { status } = req.body;
+
+    console.log(`🔄 Update Idea Status: ${ideaId} to ${status}`);
+
+    if (!['generated', 'saved', 'validated', 'mvp', 'roadmap', 'funding'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value',
+      });
+    }
+
+    let result;
+    if (mongoose.isValidObjectId(ideaId)) {
+      result = await StartupIdea.findOneAndUpdate(
+        { _id: ideaId, userId },
+        { status },
+        { new: true }
+      );
+    } else {
+      result = await StartupIdea.findOneAndUpdate(
+        { id: ideaId, userId },
+        { status },
+        { new: true }
+      );
+    }
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: 'Startup idea not found or you do not have permission to update it',
+      });
+    }
+
+    console.log(`✅ Updated idea ${result.name} status to ${status}`);
+    res.status(200).json({
+      success: true,
+      message: `Idea status updated to ${status}`,
+      idea: result,
+    });
+  } catch (error) {
+    console.error('❌ Error updating idea status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update idea status',
+      error: error.message,
+    });
+  }
+};
+
+// Unsave an idea (change status back to generated)
+export const unsaveIdea = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ideaId = req.params.id;
+
+    console.log(`📤 Unsave Idea: ${ideaId}`);
+
+    let result;
+    if (mongoose.isValidObjectId(ideaId)) {
+      result = await StartupIdea.findOneAndUpdate(
+        { _id: ideaId, userId },
+        { status: 'generated' },
+        { new: true }
+      );
+    } else {
+      result = await StartupIdea.findOneAndUpdate(
+        { id: ideaId, userId },
+        { status: 'generated' },
+        { new: true }
+      );
+    }
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: 'Startup idea not found or you do not have permission to unsave it',
+      });
+    }
+
+    console.log(`✅ Unsaved idea: ${result.name}`);
+    res.status(200).json({
+      success: true,
+      message: 'Idea unsaved successfully',
+      idea: result,
+    });
+  } catch (error) {
+    console.error('❌ Error unsaving idea:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unsave idea',
       error: error.message,
     });
   }
@@ -501,9 +626,12 @@ export const getSavedIdeas = async (req, res) => {
 
     const ideas = await StartupIdea.find({ userId }).sort({ createdAt: -1 });
 
+    // Get all ideas that have 'saved' status for the savedIds array
     const savedIds = ideas
       .filter((idea) => idea.status === "saved")
       .map((idea) => idea._id.toString());
+
+    console.log(`📚 Found ${ideas.length} total ideas, ${savedIds.length} saved for user ${userId}`);
 
     res.status(200).json({
       success: true,
@@ -511,7 +639,7 @@ export const getSavedIdeas = async (req, res) => {
       savedIds,
     });
   } catch (error) {
-    console.error("Error fetching saved ideas:", error);
+    console.error("❌ Error fetching saved ideas:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch saved ideas",
